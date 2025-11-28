@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Página do Médico - Viva Mama</title>
+</head>
+<body>
+  <header>
+    <h1>Viva Mama</h1>
+    <nav>
+      <a href="index.html">Início</a> |
+      <a href="LoginUser.html">Sair / Trocar usuário</a>
+    </nav>
+  </header>
+
+  <hr />
+
+  <main>
+    <h2>Bem-vindo à página de médico!</h2>
+
+ 
+    <p> em desenvolvimento...</p>
+
+    <!-- LISTA DE PACIENTES -->
+    <section>
+      <h3>Pacientes cadastrados</h3>
+      <button id="btnCarregarPacientes" type="button">Carregar pacientes</button>
+      <p id="msgPacientes"></p>
+
+      <table id="tblPacientes" border="1">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Data de Nascimento</th>
+            <th>Gênero</th>
+            <th>Histórico Familiar</th>
+            <th>Observações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Linhas preenchidas via JS -->
+        </tbody>
+      </table>
+    </section>
+
+    <hr />
+
+    <!-- ATUALIZAÇÃO DOS DADOS DO MÉDICO -->
+    <section>
+      <h3>Atualizar meus dados</h3>
+
+      <form id="formAtualizarMedico">
+        <!-- ADICIONADO: campo hidden para armazenar o userId do médico -->
+        <input type="hidden" name="userId" id="medicoUserId" /> 
+
+        <div>
+          <label>Nome:
+            <input type="text" name="nome" required />
+          </label>
+        </div>
+        <div>
+          <label>CRM:
+            <input type="text" name="crm" required />
+          </label>
+        </div>
+        <div>
+          <label>Especialidade:
+            <input type="text" name="especialidade" required />
+          </label>
+        </div>
+
+        <button type="submit">Salvar alterações</button>
+      </form>
+
+      <p id="msgAtualizarMedico"></p>
+    </section>
+  </main>
+
+  <script>
+    // Carrega info do usuário logado (User) do localStorage
+    function carregarInfoUsuario() {
+      const el = document.getElementById("infoUsuario");
+      const userIdField = document.getElementById("medicoUserId"); // ADICIONADO: agora esse input existe
+
+      try {
+        const str = localStorage.getItem("vivaMamaUser");
+        if (!str) {
+          el.textContent = "Nenhum usuário logado encontrado no navegador.";
+          return;
+        }
+        const info = JSON.parse(str);
+        el.textContent = "Usuário logado: ID " + info.userId + " (" + info.role + ")";
+        if (userIdField) {
+          userIdField.value = info.userId || "";
+        }
+      } catch (e) {
+        el.textContent = "Não foi possível ler informações de login.";
+      }
+    }
+
+    // Mantido: função para buscar todos os pacientes
+    async function apiGetPacientes() {
+      const resp = await fetch("/pacientes");
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error("HTTP " + resp.status + " - " + (txt || resp.statusText));
+      }
+      return resp.json();
+    }
+
+    // ADICIONADO: função assíncrona para carregar pacientes ao clicar no botão
+    async function carregarPacientes() {
+      const msg = document.getElementById("msgPacientes");
+      const tbody = document
+        .getElementById("tblPacientes")
+        .querySelector("tbody");
+
+      msg.textContent = "Carregando pacientes...";
+      tbody.innerHTML = "";
+
+      try {
+        const pacientes = await apiGetPacientes();
+
+        // ADICIONADO: debug apenas no console (não aparece para o usuário)
+        console.log("Pacientes retornados pela API:", pacientes);
+
+        if (!Array.isArray(pacientes) || pacientes.length === 0) {
+          msg.textContent = "Nenhum paciente encontrado.";
+          return;
+        }
+
+        pacientes.forEach(function (pac) {
+          const tr = document.createElement("tr");
+
+          // MODIFICADO: usamos campos típicos de paciente; removido uso de id em coluna
+          const nome = pac.nome ?? "";
+          const dataNascimento = pac.dataNascimento ?? "";
+          const genero = pac.genero ?? "";
+          const historico = pac.historicoFamiliar ?? "";
+          const observacoes = pac.observacoes ?? "";
+
+          function td(texto) {
+            const td = document.createElement("td");
+            td.textContent = texto;
+            return td;
+          }
+
+          tr.appendChild(td(nome));
+          tr.appendChild(td(dataNascimento));
+          tr.appendChild(td(genero));
+          tr.appendChild(td(historico));
+          tr.appendChild(td(observacoes));
+
+          tbody.appendChild(tr);
+        });
+
+        msg.textContent = "Pacientes carregados com sucesso.";
+      } catch (erro) {
+        // MODIFICADO: mensagem amigável para o usuário (sem expor detalhes técnicos)
+        msg.textContent = "Erro ao carregar pacientes. Tente novamente mais tarde.";
+        console.error("Erro ao carregar pacientes:", erro); // detalhes só no console
+      }
+    }
+
+    // Mantido: função genérica para PUT
+    async function apiPut(path, body) {
+      const resp = await fetch(path, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error("HTTP " + resp.status + " - " + (txt || resp.statusText));
+      }
+      return resp.json();
+    }
+
+    // Atualizar dados do médico pelo userId (perfil de médico)
+    document.getElementById("formAtualizarMedico").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const form = e.target;
+      const msg = document.getElementById("msgAtualizarMedico");
+
+      const body = {
+        // MODIFICADO: agora o userId vem do input hidden dentro do form
+        userId: Number(form.userId.value),
+        nome: form.nome.value,
+        crm: form.crm.value,
+        especialidade: form.especialidade.value
+      };
+
+      msg.textContent = "Enviando atualização...";
+
+      try {
+        // Ajuste a URL se seu endpoint for diferente
+        const json = await apiPut("/profiles/medico", body);
+        msg.textContent = "Dados do médico atualizados com sucesso.";
+        console.log("Resposta atualização médico:", json);
+      } catch (erro) {
+        // MODIFICADO: mensagem amigável, sem código bruto
+        msg.textContent = "Erro ao atualizar dados do médico. Tente novamente mais tarde.";
+        console.error("Erro ao atualizar dados do médico:", erro);
+      }
+    });
+
+    // MODIFICADO: agora o botão chama a função carregarPacientes
+    document
+      .getElementById("btnCarregarPacientes")
+      .addEventListener("click", carregarPacientes);
+
+    // MODIFICADO: garante que info do usuário é carregada quando a página terminar de carregar
+    document.addEventListener("DOMContentLoaded", carregarInfoUsuario);
+  </script>
+</body>
+</html>

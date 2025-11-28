@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cadastro - Viva Mama</title>
+</head>
+<body>
+  <header>
+    <h1>Viva Mama</h1>
+    <nav>
+      <a href="index.html">Início</a> |
+      <a href="LoginUser.html">Login</a>
+    </nav>
+  </header>
+
+  <hr />
+
+  <main>
+    <h2>Cadastro de Usuário</h2>
+    
+      <p> em desenvolvimento...</p>
+     
+    <p>Preencha os dados de acesso e, em seguida, os dados específicos de paciente ou médico.</p>
+
+    <form id="cadastroForm">
+      <h3>Dados de Usuário (User)</h3>
+      <div>
+        <label>Email:
+          <input type="email" name="email" required />
+        </label>
+      </div>
+      <div>
+        <label>Senha:
+          <input type="password" name="senha" required />
+        </label>
+      </div>
+      <div>
+        <label>Telefone:
+          <input type="text" name="telefone" required />
+        </label>
+      </div>
+      <div>
+        <label>Tipo de Usuário:
+          <select name="role" id="roleSelect">
+            <option value="PACIENTE">Paciente</option>
+            <option value="MEDICO">Médico</option>
+          </select>
+        </label>
+      </div>
+
+      <hr />
+
+      <!-- DADOS DE PACIENTE -->
+      <section id="secPaciente">
+        <h3>Dados do Paciente (Perfil)</h3>
+        <div>
+          <label>Nome:
+            <input type="text" name="pacienteNome" />
+          </label>
+        </div>
+        <div>
+          <label>Data de Nascimento:
+            <input type="date" name="pacienteDataNascimento" />
+          </label>
+        </div>
+        <div>
+          <label>Histórico Familiar:
+            <input type="text" name="pacienteHistoricoFamiliar" />
+          </label>
+        </div>
+        <div>
+          <label>Observações:
+            <input type="text" name="pacienteObservacoes" />
+          </label>
+        </div>
+        <div>
+          <label>Gênero (M/F/outra letra):
+            <input type="text" name="pacienteGenero" maxlength="1" />
+          </label>
+        </div>
+      </section>
+
+      <!-- DADOS DE MEDICO -->
+      <section id="secMedico" style="display:none">
+        <h3>Dados do Médico (Perfil)</h3>
+        <div>
+          <label>Nome:
+            <input type="text" name="medicoNome" />
+          </label>
+        </div>
+        <div>
+          <label>CRM:
+            <input type="text" name="medicoCrm" />
+          </label>
+        </div>
+        <div>
+          <label>Especialidade:
+            <input type="text" name="medicoEspecialidade" />
+          </label>
+        </div>
+      </section>
+
+      <hr />
+
+      <button type="submit">Concluir Cadastro</button>
+    </form>
+
+    <p id="cadastroMensagem"></p>
+  </main>
+
+  <script>
+    // Mostra/esconde blocos de cadastro específico
+    const roleSelect = document.getElementById("roleSelect");
+    const secPaciente = document.getElementById("secPaciente");
+    const secMedico = document.getElementById("secMedico");
+
+    function atualizarSecoes() {
+      const role = roleSelect.value;
+      if (role === "PACIENTE") {
+        secPaciente.style.display = "block";
+        secMedico.style.display = "none";
+      } else {
+        secPaciente.style.display = "none";
+        secMedico.style.display = "block";
+      }
+    }
+
+    roleSelect.addEventListener("change", atualizarSecoes);
+    atualizarSecoes(); // estado inicial
+
+    async function apiPost(path, body) {
+      const resp = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error("HTTP " + resp.status + " - " + (txt || resp.statusText));
+      }
+      return resp.json();
+    }
+
+    document.getElementById("cadastroForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const form = e.target;
+      const msg = document.getElementById("cadastroMensagem");
+      msg.textContent = "Enviando cadastro de usuário...";
+
+      const role = form.role.value;
+
+      // 1) Cria o USER
+      const userBody = {
+        email: form.email.value,
+        senha: form.senha.value,
+        telefone: form.telefone.value,
+        role: role
+      };
+
+      try {
+        const userJson = await apiPost("/auth/register", userBody);
+        const userId = userJson.userId;
+
+        // 2) Cria o perfil específico
+        if (role === "PACIENTE") {
+          msg.textContent = "Criando perfil de paciente...";
+
+          const pacienteBody = {
+            userId: userId,
+            nome: form.pacienteNome.value || "",
+            dataNascimento: form.pacienteDataNascimento.value || null,
+            historicoFamiliar: form.pacienteHistoricoFamiliar.value || "",
+            observacoes: form.pacienteObservacoes.value || "",
+            genero: form.pacienteGenero.value || "F"
+          };
+
+          await apiPost("/profiles/paciente", pacienteBody);
+          msg.textContent = "Cadastro concluído: Agora você pode fazer login.";
+
+        } else if (role === "MEDICO") {
+          msg.textContent = "Criando perfil de médico...";
+
+          const medicoBody = {
+            userId: userId,
+            nome: form.medicoNome.value || "",
+            crm: form.medicoCrm.value || "",
+            especialidade: form.medicoEspecialidade.value || ""
+          };
+
+          await apiPost("/profiles/medico", medicoBody);
+          msg.textContent = "Cadastro concluído: Agora você pode fazer login.";
+        } else {
+          msg.textContent = "Usuário criado, mas tipo de role não reconhecido para perfil.";
+        }
+      } catch (erro) {
+        msg.textContent = "Erro no cadastro: " + erro.message;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login - Viva Mama</title>
+</head>
+<body>
+  <header>
+    <h1>Viva Mama</h1>
+    <nav>
+      <a href="index.html">Início</a> |
+      <a href="Cadastro.html">Cadastro</a>
+    </nav>
+  </header>
+
+  <hr />
+
+  <main>
+    <h2>Login de Usuário</h2>
+    
+      <p> em desenvolvimento...</p>
+
+    <form id="loginForm">
+      <div>
+        <label>Email:
+          <input type="email" name="email" required />
+        </label>
+      </div>
+      <div>
+        <label>Senha:
+          <input type="password" name="senha" required />
+        </label>
+      </div>
+      <button type="submit">Entrar</button>
+    </form>
+
+    <p id="loginMensagem"></p>
+  </main>
+
+  <script>
+  async function fazerLogin(body) {
+    const resp = await fetch("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    if (!resp.ok) {
+      const txt = await resp.text();
+      throw new Error("Erro HTTP " + resp.status + " - " + (txt || resp.statusText));
+    }
+    return resp.json();
+  }
+
+  document.getElementById("loginForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const form = e.target;
+    const dados = {
+      email: form.email.value,
+      senha: form.senha.value
+    };
+
+    const msg = document.getElementById("loginMensagem");
+    msg.textContent = "Enviando login...";
+
+    try {
+      const json = await fazerLogin(dados);
+      msg.textContent = "Login OK. Usuário ID: " + json.userId + " | Tipo: " + json.role;
+
+      // Salva info do usuário para outras telas
+      const info = { userId: json.userId, role: json.role };
+      localStorage.setItem("vivaMamaUser", JSON.stringify(info));
+
+      // Redireciona conforme o tipo de usuário
+      if (json.role === "MEDICO") {
+        window.location.href = "Medico.html";
+      } else if (json.role === "PACIENTE") {
+        window.location.href = "Paciente.html";
+      } else {
+        msg.textContent += " (tipo não reconhecido para redirecionamento)";
+      }
+    } catch (erro) {
+      msg.textContent = "Falha no login: " + erro.message;
+    }
+  });
+</script>
+
+</body>
+</html>
