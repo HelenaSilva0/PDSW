@@ -18,8 +18,15 @@
   <main>
     <h2>Bem-vindo à página de paciente!</h2>
    
-    
-     <p> em desenvolvimento...</p>
+    <p>em desenvolvimento...</p>
+
+    <!-- LINK PARA O FORM DE HISTÓRICO FAMILIAR DETALHADO -->
+    <p>
+     <a href="/HistoricoFamiliar.html">
+      Preencher histórico familiar detalhado e anexar exames
+    </a>
+     
+    </p>
      
     <section>
       <h3>Atualizar meus dados</h3>
@@ -108,7 +115,6 @@
       msg.textContent = "Enviando atualização...";
 
       try {
-        // Ajuste a URL se seu endpoint for diferente
         const json = await apiPut("/profiles/paciente", body);
         msg.textContent = "Dados do paciente atualizados com sucesso.";
         console.log("Resposta atualização paciente:", json);
