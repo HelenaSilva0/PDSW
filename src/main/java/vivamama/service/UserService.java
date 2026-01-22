@@ -29,6 +29,10 @@ public class UserService {
 	    public Optional<User> buscarPorEmail(String email) {
 	        return repo.findByEmail(email);
 	    }
+	    
+	    public Optional<User> buscarPorTelefone(String telefone){
+	        return repo.findByTelefone(telefone);
+	    }
 
 	    // autenticar usuário usando 
 	    public Optional<User> autenticar(String email, String senhaPura) {

@@ -1,5 +1,7 @@
 package vivamama.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 
 @Entity
@@ -16,6 +18,7 @@ public class User {
     @Column(nullable = false, length = 120)
     private String email;
 
+    @JsonIgnore
     @Column(nullable = false, length = 255)
     private String senha;
 

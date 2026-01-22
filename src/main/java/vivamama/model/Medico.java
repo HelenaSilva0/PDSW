@@ -17,12 +17,6 @@ package vivamama.model;
 	    @Column(length = 100, nullable = false)
 	    private String nome;
 
-	   // @Column(length = 100, nullable = false, unique = true)
-	    //private String email;
-
-	 //   @Column(length = 255, nullable = false)
-	 //   private String senha;
-
 	    @Column(length = 20, nullable = false, unique = true)
 	    private String crm;
 
@@ -40,12 +34,6 @@ package vivamama.model;
 
 		public void setUser(User user) { 
 			this.user = user; }
-
-	    //public String getEmail() { return email; }
-	   // public void setEmail(String email) { this.email = email; }
-
-	   // public String getSenha() { return senha; }
-	   // public void setSenha(String senha) { this.senha = senha; }
 
 	    public String getCrm() { return crm; }
 	    public void setCrm(String crm) { this.crm = crm; }

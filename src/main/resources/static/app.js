@@ -1,0 +1,1344 @@
+/* Viva Mama - Front multi páginas (Spring + JWT)
+
+✅ Ajustes pedidos:
+1) Após cadastro, usuário já fica logado (register -> login automático).
+2) Após login, NÃO aparece a função de cadastro (menu e acesso direto ao cadastro redireciona).
+3) Identificação de perfil (Paciente/Médico) no header.
+4) Médico NÃO cadastra histórico: só visualiza. A visualização do histórico aparece na sessão DETALHES, após selecionar um paciente.
+5) Se lista de pacientes estiver vazia, mostramos aviso claro (normalmente é porque NÃO existe perfil de paciente criado no backend).
+6) Tratamento básico para respostas com redirect (303) no fetch.
+7) Paciente: se /pacientes/me retornar 404 (perfil não existe), a tela mostra formulário para CRIAR o perfil (sem ir pro cadastro), e depois carrega os dados pessoais para editar.
+
+🛠 Correções para "login/cadastro não funciona":
+A) Cadastro: campos hidden com required travavam submit -> agora desabilita inputs do grupo não selecionado e ajusta required.
+B) Login: normaliza e-mail para lowercase.
+C) apiFetch: não envia Authorization Bearer em /auth/* (evita token velho quebrar login/register).
+D) Cadastro médico: cria perfil de médico também (POST /profiles/medico).
+*/
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+
+const API = window.location.pathname.replace(/\/[^\/]*$/, ""); // mesma origem
+
+const STORAGE = {
+  token: "vm_token",
+  userId: "vm_userId",
+  role: "vm_role",
+};
+
+const BANNERS = [
+  { title: "Autoexame: conheça seu corpo", text: "Observe mudanças e procure avaliação médica se notar nódulos, retrações, secreções ou alterações na pele." },
+  { title: "Mamografia salva vidas", text: "A mamografia pode detectar alterações precoces. Siga a orientação do seu médico e as diretrizes da sua região." },
+  { title: "Histórico familiar importa", text: "Informe casos em parentes próximos. Isso ajuda a definir rastreio e condutas personalizadas." },
+  { title: "Não é só nódulo", text: "Vermelhidão persistente, pele em 'casca de laranja' e dor localizada também precisam de investigação." }
+];
+
+/* ---------------- Utils ---------------- */
+function escapeHTML(str) {
+  return String(str ?? "")
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+}
+function escapeAttr(str) { return escapeHTML(str).replaceAll("\n", " "); }
+
+function toast(msg) {
+  const el = $("#toast");
+  if (!el) return;
+  el.textContent = msg;
+  el.hidden = false;
+  setTimeout(() => (el.hidden = true), 2600);
+}
+
+function openModal(id) { const m = $(id); if (m) m.setAttribute("aria-hidden", "false"); }
+function closeModal(id) { const m = $(id); if (m) m.setAttribute("aria-hidden", "true"); }
+
+function setToken(token) { localStorage.setItem(STORAGE.token, token); }
+function getToken() { return localStorage.getItem(STORAGE.token) || ""; }
+
+function setUserMeta(userId, role) {
+  if (userId != null) localStorage.setItem(STORAGE.userId, String(userId));
+  if (role != null) localStorage.setItem(STORAGE.role, String(role));
+}
+function getUserMeta() {
+  return {
+    userId: localStorage.getItem(STORAGE.userId),
+    role: localStorage.getItem(STORAGE.role),
+    token: getToken(),
+  };
+}
+function clearAuth() {
+  localStorage.removeItem(STORAGE.token);
+  localStorage.removeItem(STORAGE.userId);
+  localStorage.removeItem(STORAGE.role);
+}
+
+function normalizeRole(roleStr) {
+  const r = (roleStr || "").toUpperCase();
+  if (r === "PACIENTE" || r === "ROLE_PACIENTE") return "PACIENTE";
+  if (r === "MEDICO" || r === "MÉDICO" || r === "ROLE_MEDICO") return "MEDICO";
+  return r;
+}
+
+function normalizeGeneroChar(v) {
+  const s = String(v ?? "").trim().toUpperCase();
+  if (!s) return "N";
+  const c = s[0];
+  if (["F", "M", "O", "N"].includes(c)) return c;
+  return "N";
+}
+function generoLabel(c) {
+  const g = normalizeGeneroChar(c);
+  if (g === "F") return "Feminino";
+  if (g === "M") return "Masculino";
+  if (g === "O") return "Outro";
+  return "Não informado";
+}
+
+const HISTORICO_PERGUNTAS = {
+  1: "Alguém da sua família já teve câncer de mama ou de ovário? Quem?",
+  2: "Idade aproximada do diagnóstico",
+  3: "Outros tipos de câncer na família",
+  4: "Teste genético (BRCA1/BRCA2) / resultado",
+  5: "Câncer de mama em homens na família?",
+  6: "Mamografia/ultrassom/autoexame (último)",
+  7: "Nódulos/biópsias/cirurgias/alterações",
+  8: "Reposição hormonal/anticoncepcional por muito tempo",
+  9: "Gestação/amamentação (tempo)",
+  10: "Outros problemas de saúde importantes",
+};
+
+function parseHistoricoRespostas(textoHistorico) {
+  const t = String(textoHistorico || "");
+  const answers = {};
+  t.split(/\r?\n/).forEach(line => {
+    const m = line.trim().match(/^(\d{1,2})\)\s*(.*)$/);
+    if (m) answers[Number(m[1])] = (m[2] || "").trim();
+  });
+  return answers;
+}
+
+function historicoTextoParaHtml(textoHistorico) {
+  const t = String(textoHistorico || "").trim();
+  if (!t) return "<span class='muted'>(sem texto)</span>";
+
+  const ans = parseHistoricoRespostas(t);
+  const has = Object.keys(ans).length > 0;
+
+  // Se não conseguimos parsear pelo padrão "1) ...", cai para um bloco preformatado
+  if (!has) return `<pre class="pre">${escapeHTML(t)}</pre>`;
+
+  const item = (n) => `
+    <li>
+      <div class="qa__q">${escapeHTML(HISTORICO_PERGUNTAS[n] || ("Pergunta " + n))}</div>
+      <div class="qa__a">${escapeHTML(ans[n] || "—")}</div>
+    </li>
+  `;
+
+  return `
+    <div class="hf">
+      <div class="muted" style="margin-top:2px;">HISTÓRICO FAMILIAR (FAMÍLIA)</div>
+      <ol class="qa" start="1">
+        ${[1, 2, 3, 4, 5].map(item).join("")}
+      </ol>
+
+      <div class="muted">HISTÓRICO PESSOAL (VOCÊ)</div>
+      <ol class="qa" start="6">
+        ${[6, 7, 8, 9, 10].map(item).join("")}
+      </ol>
+    </div>
+  `;
+}
+
+
+function goPanelByRole(role) {
+  const r = normalizeRole(role);
+  window.location.href = r === "PACIENTE" ? "paciente.html" : "medico.html";
+}
+
+function qs(name) {
+  const url = new URL(window.location.href);
+  return url.searchParams.get(name);
+}
+
+function isRedirectStatus(code) {
+  return [301, 302, 303, 307, 308].includes(Number(code));
+}
+
+function extractServerMessage(err) {
+  if (!err) return "";
+
+  if (typeof err?.data === "string") {
+    const s = err.data.trim();
+    if (s) return s;
+  }
+
+  if (err?.data && typeof err.data === "object" && typeof err.data.message === "string") {
+    const s = err.data.message.trim();
+    if (s) return s;
+  }
+
+  const raw = String(err?.message || "");
+  const m = raw.match(/^HTTP\s+\d+\s*:\s*(.*)$/i);
+  const s = (m ? m[1] : raw).trim();
+
+  if (!s) return "";
+  if (["erro", "error"].includes(s.toLowerCase())) return "";
+  return s;
+}
+
+function inferFriendlyError(err) {
+  const status = err?.status;
+  const serverMsg = extractServerMessage(err);
+
+  if (serverMsg) return serverMsg;
+
+  const msg = String(err?.message || err || "");
+
+  if (status === 401 || msg.includes("HTTP 401")) return "Sessão inválida/expirada. Faça login novamente.";
+  if (status === 403 || msg.includes("HTTP 403")) return "Acesso negado. Verifique o perfil/autorizações.";
+  if (status === 404 || msg.includes("HTTP 404")) return "Recurso não encontrado (404).";
+  if (status === 303 || msg.includes("HTTP 303")) return "Servidor retornou redirecionamento (303).";
+
+  return msg || "Erro inesperado.";
+}
+
+
+function handleAuthFailure(err) {
+  const status = err?.status;
+  const msg = String(err?.message || "");
+
+  if (status === 401 || status === 403 || msg.includes("HTTP 401") || msg.includes("HTTP 403")) {
+    clearAuth();
+    toast(inferFriendlyError(err));
+    setTimeout(() => (window.location.href = "index.html"), 250);
+    return true;
+  }
+  return false;
+}
+
+
+/* ---------------- Fetch com JWT + redirect ---------------- */
+async function apiFetch(path, options = {}) {
+  const headers = options.headers || {};
+  const token = getToken();
+  const isForm = options.body instanceof FormData;
+
+  if (!isForm) headers["Content-Type"] = headers["Content-Type"] || "application/json";
+
+  // ✅ NÃO envia Bearer em /auth/* (evita token velho quebrar login/register)
+  const isAuthRoute = String(path || "").startsWith("/auth/");
+  if (token && !isAuthRoute) headers["Authorization"] = `Bearer ${token}`;
+
+  const req = { redirect: "follow", ...options, headers };
+  let res = await fetch(API + path, req);
+
+  // segue redirects (ex.: 303)
+  if (isRedirectStatus(res.status)) {
+    const loc = res.headers.get("location");
+    if (loc) {
+      const followUrl = loc.startsWith("http")
+        ? loc
+        : (loc.startsWith("/") ? (API + loc) : (API + "/" + loc));
+
+      res = await fetch(followUrl, { method: "GET", headers, redirect: "follow" });
+    }
+  }
+
+  const ct = res.headers.get("content-type") || "";
+  let data;
+  try {
+    data = ct.includes("application/json") ? await res.json() : await res.text();
+  } catch {
+    data = await res.text().catch(() => "");
+  }
+
+  if (!res.ok) {
+    const msg = (typeof data === "string" ? data : (data.message || JSON.stringify(data)));
+
+    // ✅ se for 401/403, limpa sessão
+    if (res.status === 401 || res.status === 403) clearAuth();
+
+    const e = new Error(`HTTP ${res.status}: ${msg || "Erro"}`);
+    e.status = res.status;
+    e.data = data;
+    throw e;
+  }
+
+  return data;
+}
+
+
+/* ---------------- Auth API ---------------- */
+async function loginUser(email, senha) {
+  const safeEmail = (email || "").trim().toLowerCase();
+  const data = await apiFetch("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: safeEmail, senha }),
+  });
+  setToken(data.token);
+  setUserMeta(data.userId, data.role);
+  return data;
+}
+
+async function registerUser(payload) {
+  const p = { ...(payload || {}) };
+  if (p.email) p.email = String(p.email).trim().toLowerCase();
+  return apiFetch("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(p),
+  });
+}
+
+async function createPacienteProfile(payload) {
+  return apiFetch("/profiles/paciente", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+async function createMedicoProfile(payload) {
+  return apiFetch("/profiles/medico", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/* ---------------- Paciente API ---------------- */
+async function fetchMePaciente() {
+  return apiFetch("/pacientes/me", { method: "GET" });
+}
+async function updateMePaciente(payload) {
+  return apiFetch("/pacientes/me", { method: "PUT", body: JSON.stringify(payload) });
+}
+
+/* ---------------- Médico API ---------------- */
+async function fetchPacientes() {
+  return apiFetch("/pacientes", { method: "GET" });
+}
+async function fetchPacienteById(id) {
+  return apiFetch(`/pacientes/${id}`, { method: "GET" });
+}
+
+/* ---------------- Histórico Familiar (snapshot) ---------------- */
+async function fetchHistoricosByPacienteId(idPaciente) {
+  return apiFetch(`/historico-familiar/paciente/${idPaciente}`, { method: "GET" });
+}
+async function downloadHistoricoAnexo(anexoId, nomeOriginal) {
+  const token = getToken();
+  if (!token) throw new Error("Faça login para baixar anexos.");
+
+  const res = await fetch(API + `/historico-familiar/anexos/${anexoId}`, {
+    headers: { "Authorization": `Bearer ${token}` },
+    redirect: "follow"
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => "");
+    throw new Error(msg || `Erro ${res.status}`);
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nomeOriginal || `anexo-${anexoId}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// paciente cria snapshot e anexa (novo back)
+async function createHistoricoSnapshot({ pacienteId, textoHistorico }) {
+  return apiFetch("/historico-familiar/snapshots", {
+    method: "POST",
+    body: JSON.stringify({ pacienteId, textoHistorico }),
+  });
+}
+async function uploadHistoricoAnexos({ historicoId, examesFiles }) {
+  const fd = new FormData();
+  (examesFiles || []).forEach(f => fd.append("exames", f));
+  return apiFetch(`/historico-familiar/snapshots/${historicoId}/anexos`, { method: "POST", body: fd });
+}
+
+/* ---------------- Layout ---------------- */
+function logoSVG() {
+  return `
+    <svg class="brand__logo" viewBox="0 0 220 140" aria-hidden="true">
+      <circle cx="110" cy="36" r="16" fill="none" stroke="var(--pink)" stroke-width="3"/>
+      <path d="M60 115V78c0-10 8-18 18-18h64c10 0 18 8 18 18v37"
+            fill="none" stroke="var(--pink)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M92 82c0-6 5-10 11-10 5 0 8 3 11 7 3-4 6-7 11-7 6 0 11 4 11 10 0 13-22 26-22 26S92 95 92 82Z"
+            fill="none" stroke="var(--pink)" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M140 98c-10-7-14-12-14-18 0-3 2-6 6-6 4 0 6 3 6 6 0 8-9 13-18 20"
+            fill="none" stroke="var(--pink-soft)" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+  `;
+}
+
+function buildLayout(page) {
+  const meta = getUserMeta();
+  const logged = !!meta.token;
+  const role = normalizeRole(meta.role || "");
+  const painelHref = logged ? (role === "PACIENTE" ? "paciente.html" : "medico.html") : "#";
+
+  // ✅ Para médico: Histórico Familiar NÃO fica no menu (ele vê no DETALHES)
+  const showHistoricoMenu = logged && role === "PACIENTE";
+
+  const perfilLabel = role === "PACIENTE" ? "Paciente" : (role === "MEDICO" ? "Médico(a)" : "");
+
+  return `
+    <header class="header">
+      <div class="container header__inner">
+        <a class="brand" href="index.html">
+          ${logoSVG()}
+          <div class="brand__text">
+            <div class="brand__name">VIVA MAMA</div>
+            <div class="brand__tag">Apoio e acompanhamento em saúde mamária</div>
+          </div>
+        </a>
+
+        <nav class="nav">
+          <a class="nav__link" href="index.html">Início</a>
+          <a class="nav__link" id="navCadastro" href="cadastro.html" ${logged ? "hidden" : ""}>Cadastro</a>
+
+          <a class="nav__link" id="navHistorico" href="HistoricoFamiliar.html" ${showHistoricoMenu ? "" : "hidden"}>Histórico Familiar</a>
+          <a class="nav__link" id="navPainel" href="${painelHref}" ${logged ? "" : "hidden"}>Painel</a>
+
+          <span class="badge" id="navPerfil" ${logged ? "" : "hidden"}>Área de <strong>${escapeHTML(perfilLabel)}</strong></span>
+
+          <button class="btn btn--ghost" id="btnLogin" ${logged ? "hidden" : ""}>Entrar</button>
+          <button class="btn" id="btnLogout" ${logged ? "" : "hidden"}>Sair</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="container">
+        <div class="toast" id="toast" aria-live="polite" aria-atomic="true" hidden></div>
+        <div id="pageRoot"></div>
+      </div>
+    </main>
+
+    <div class="modal" id="modalLogin" aria-hidden="true">
+      <div class="modal__backdrop" data-close="true"></div>
+      <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <div class="modal__header">
+          <h2 id="loginTitle">Entrar</h2>
+          <button class="icon-btn" id="btnCloseLogin" aria-label="Fechar">✕</button>
+        </div>
+
+        <form id="formLogin" class="form">
+          <div class="field">
+            <label for="loginEmail">E-mail</label>
+            <input id="loginEmail" type="email" placeholder="ex: seuemail@email.com" required />
+          </div>
+
+          <div class="field">
+            <label for="loginSenha">Senha</label>
+            <input id="loginSenha" type="password" placeholder="••••••••" minlength="6" required />
+          </div>
+
+          <button class="btn btn--block" type="submit">Entrar</button>
+
+          <p class="muted">
+            Não tem conta? <a href="cadastro.html">Ir para cadastro</a>
+          </p>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function bindCommon() {
+  $("#btnLogin")?.addEventListener("click", () => openModal("#modalLogin"));
+  $("#btnCloseLogin")?.addEventListener("click", () => closeModal("#modalLogin"));
+  $("#modalLogin")?.addEventListener("click", (e) => {
+    if (e.target?.dataset?.close === "true") closeModal("#modalLogin");
+  });
+
+  $("#btnLogout")?.addEventListener("click", () => {
+    clearAuth();
+    toast("Você saiu.");
+    setTimeout(() => (window.location.href = "index.html"), 200);
+  });
+
+  $("#formLogin")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = ($("#loginEmail")?.value || "").trim().toLowerCase();
+    const senha = $("#loginSenha")?.value || "";
+
+    try {
+      const data = await loginUser(email, senha);
+      closeModal("#modalLogin");
+      toast("Login efetuado!");
+      setTimeout(() => goPanelByRole(data.role), 150);
+    } catch (err) {
+      toast(inferFriendlyError(err));
+    }
+  });
+}
+
+/* ---------------- Pages ---------------- */
+function renderHome() {
+  const root = $("#pageRoot");
+
+  root.innerHTML = `
+  <section class="hero">
+      <div class="hero__top hero__top--center">
+        <div>
+          <h1 class="hero__title">Acolhimento, organização e cuidado.</h1>
+          <p class="hero__desc">
+            Um ambiente para tirar dúvidas e compartilhar conhecimento.
+          </p>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="home-center">
+        <div class="card card--flat home-card">
+          <div class="card__header">
+            <h2 class="card__title">Saúde das Mamas</h2>
+            <p class="card__subtitle">Saiba mais sobre as suas mamas.</p>
+          </div>
+          <div class="card__body">
+            <div class="banner">
+              <div class="banner__dot"></div>
+              <div>
+                <h3 class="banner__title" id="bannerTitle"></h3>
+                <p class="banner__text" id="bannerText"></p>
+              </div>
+            </div>
+
+            <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn btn--ghost" id="btnBannerPrev">◀</button>
+              <button class="btn btn--ghost" id="btnBannerNext">▶</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+
+  let idx = 0;
+  const paint = () => {
+    $("#bannerTitle").textContent = BANNERS[idx].title;
+    $("#bannerText").textContent = BANNERS[idx].text;
+  };
+  paint();
+  $("#btnBannerPrev").onclick = () => { idx = (idx - 1 + BANNERS.length) % BANNERS.length; paint(); };
+  $("#btnBannerNext").onclick = () => { idx = (idx + 1) % BANNERS.length; paint(); };
+}
+
+/* -------- Cadastro (simples) -------- */
+function renderCadastro() {
+  const root = $("#pageRoot");
+  root.innerHTML = `
+    <div class="page-center">
+      <div class="card">
+        <div class="card__header">
+          <h2 class="card__title">Cadastro</h2>
+          <p class="card__subtitle">Selecione Paciente ou Médico(a).</p>
+        </div>
+        <div class="card__body">
+          <form id="formCadastro" class="form">
+
+            <div class="row">
+              <div class="field">
+                <label>Tipo de usuário</label>
+                <select id="cadTipo" required>
+                  <option value="" selected disabled>Selecione...</option>
+                  <option value="PACIENTE">Paciente</option>
+                  <option value="MEDICO">Médico(a)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Telefone</label>
+                <input id="cadTelefone" required placeholder="(xx) xxxxx-xxxx" />
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label>E-mail</label>
+                <input id="cadEmail" type="email" required placeholder="ex: voce@email.com" />
+              </div>
+              <div class="field">
+                <label>Senha</label>
+                <input id="cadSenha" type="password" minlength="6" required placeholder="mínimo 6 caracteres" />
+              </div>
+            </div>
+
+            <div id="camposPaciente" hidden>
+              <div class="hr"></div>
+              <div class="badge">Paciente</div>
+
+              <div class="row" style="margin-top:10px;">
+                <div class="field">
+                  <label>Nome</label>
+                  <input id="pNome" required placeholder="Nome completo" />
+                </div>
+                <div class="field">
+                  <label>Data de nascimento</label>
+                  <input id="pNasc" type="date" />
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="field">
+                  <label>Gênero</label>
+                  <select id="pGenero">
+                    <option value="N">Não informado</option>
+                    <option value="F">Feminino</option>
+                    <option value="M">Masculino</option>
+                    <option value="O">Outro</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Observações</label>
+                  <input id="pObs" placeholder="(opcional)" />
+                </div>
+              </div>
+            </div>
+
+            <div id="camposMedico" hidden>
+              <div class="hr"></div>
+              <div class="badge">Médico</div>
+
+              <div class="row" style="margin-top:10px;">
+                <div class="field">
+                  <label>Nome</label>
+                  <input id="mNome" required placeholder="Nome completo" />
+                </div>
+                <div class="field">
+                  <label>CRM</label>
+                  <input id="mCrm" required placeholder="CRM-UF 12345" />
+                </div>
+              </div>
+
+              <div class="field">
+                <label>Especialidade</label>
+                <input id="mEsp" required placeholder="Mastologia, Ginecologia..." />
+              </div>
+            </div>
+
+            <button class="btn btn--block" type="submit">Criar conta</button>
+            <p class="muted">Já tem conta? <a href="#" id="cadIrLogin">Entrar</a></p>
+          </form>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const cadTipo = $("#cadTipo");
+  const camposPaciente = $("#camposPaciente");
+  const camposMedico = $("#camposMedico");
+
+  // ✅ Corrige "required escondido" travando submit:
+  function setGroupActive(groupEl, active) {
+    groupEl.hidden = !active;
+    $$("input, select, textarea", groupEl).forEach(el => {
+      el.disabled = !active;
+    });
+  }
+
+  function applyTipo(t) {
+    const isPaciente = t === "PACIENTE";
+    const isMedico = t === "MEDICO";
+
+    setGroupActive(camposPaciente, isPaciente);
+    setGroupActive(camposMedico, isMedico);
+
+    $("#pNome").required = isPaciente;
+
+    $("#mNome").required = isMedico;
+    $("#mCrm").required = isMedico;
+    $("#mEsp").required = isMedico;
+  }
+
+  cadTipo.addEventListener("change", () => applyTipo(cadTipo.value));
+  applyTipo(cadTipo.value); // estado inicial
+
+  $("#cadIrLogin").addEventListener("click", (e) => {
+    e.preventDefault();
+    openModal("#modalLogin");
+  });
+
+  $("#formCadastro").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const role = normalizeRole($("#cadTipo").value);
+    const telefone = $("#cadTelefone").value.trim();
+    const email = $("#cadEmail").value.trim().toLowerCase();
+    const senha = $("#cadSenha").value;
+
+    if (!role) return toast("Selecione o tipo de usuário.");
+    if (!telefone) return toast("Telefone é obrigatório.");
+
+    try {
+      // registra
+	  const regPayload = { email, senha, telefone, role };
+
+	  if (role === "PACIENTE") {
+	    regPayload.nome = $("#pNome").value.trim();
+	    regPayload.dataNascimento = $("#pNasc").value || null;
+	    regPayload.observacoes = $("#pObs").value.trim();
+	    regPayload.genero = normalizeGeneroChar($("#pGenero").value);
+	  }
+
+	  if (role === "MEDICO") {
+	    regPayload.nome = $("#mNome").value.trim();
+	    regPayload.crm = $("#mCrm").value.trim();
+	    regPayload.especialidade = $("#mEsp").value.trim();
+	  }
+
+	  await registerUser(regPayload);
+
+      // loga automaticamente (requisito #1)
+      const auth = await loginUser(email, senha);
+      const r = normalizeRole(auth.role);
+
+      // cria perfil
+      if (r === "PACIENTE") {
+        const nome = $("#pNome").value.trim();
+        if (!nome) return toast("Nome é obrigatório.");
+
+        await createPacienteProfile({
+          nome,
+          dataNascimento: $("#pNasc").value || null,
+          historicoFamiliar: "",
+          observacoes: $("#pObs").value.trim(),
+          genero: normalizeGeneroChar($("#pGenero").value),
+        });
+      }
+
+      if (r === "MEDICO") {
+        const nome = $("#mNome").value.trim();
+        const crm = $("#mCrm").value.trim();
+        const especialidade = $("#mEsp").value.trim();
+
+        if (!nome) return toast("Nome do médico é obrigatório.");
+        if (!crm) return toast("CRM é obrigatório.");
+        if (!especialidade) return toast("Especialidade é obrigatória.");
+
+        await createMedicoProfile({ nome, crm, especialidade });
+      }
+
+      toast("Conta criada! Indo para o painel...");
+      setTimeout(() => goPanelByRole(r), 250);
+
+    } catch (err) {
+      toast(inferFriendlyError(err));
+    }
+  });
+}
+
+/* -------- Paciente (dados pessoais sempre) -------- */
+function renderPaciente() {
+  const meta = getUserMeta();
+  const role = normalizeRole(meta.role || "");
+  if (!meta.token) {
+    toast("Faça login para acessar.");
+    return setTimeout(() => window.location.href = "index.html", 250);
+  }
+  if (role !== "PACIENTE") {
+    toast("Acesso restrito.");
+    return setTimeout(() => window.location.href = "index.html", 250);
+  }
+
+  const root = $("#pageRoot");
+  root.innerHTML = `
+    <div class="card card--flat">
+      <div class="card__header">
+        <h2 class="card__title">Área do Paciente</h2>
+        <p class="card__subtitle">Visualize e altere seus dados pessoais. O histórico fica na página “Histórico Familiar”.</p>
+      </div>
+      <div class="card__body">
+        <div class="muted" id="pLoading">Carregando...</div>
+        <div id="pContent" hidden></div>
+      </div>
+    </div>
+  `;
+
+  async function loadMe() {
+    try {
+      const me = await fetchMePaciente();
+      renderPerfilForm(me);
+    } catch (err) {
+      $("#pLoading").textContent = inferFriendlyError(err);
+    }
+  }
+
+  function renderPerfilForm(me) {
+    $("#pLoading").hidden = true;
+    const box = $("#pContent");
+    box.hidden = false;
+
+    box.innerHTML = `
+      <form id="formPaciente" class="form">
+        <div class="row">
+          <div class="field" style="flex:1;">
+            <label>Nome</label>
+            <input id="pNome" value="${escapeAttr(me.nome || "")}" required />
+          </div>
+          <div class="field" style="flex:1;">
+            <label>Data de nascimento</label>
+            <input id="pNasc" type="date" value="${escapeAttr(me.dataNascimento || "")}" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field" style="flex:1;">
+            <label>Gênero</label>
+            <select id="pGenero">
+              <option value="F" ${me.genero === "F" ? "selected" : ""}>Feminino</option>
+              <option value="M" ${me.genero === "M" ? "selected" : ""}>Masculino</option>
+              <option value="O" ${me.genero === "O" ? "selected" : ""}>Outro</option>
+            </select>
+          </div>
+
+          <div class="field" style="flex:1;">
+            <label>Observações</label>
+            <input id="pObs" value="${escapeAttr(me.observacoes || "")}" />
+          </div>
+        </div>
+
+        <div class="row">
+          <button class="btn" type="submit">Salvar</button>
+          <a class="btn btn--ghost" href="HistoricoFamiliar.html">Abrir Histórico Familiar</a>
+        </div>
+
+        <div class="muted">O histórico familiar (texto + exames) é versionado na página Histórico Familiar.</div>
+      </form>
+    `;
+
+    $("#formPaciente").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const data = {
+          nome: $("#pNome").value.trim(),
+          dataNascimento: $("#pNasc").value || null,
+          genero: normalizeGeneroChar($("#pGenero").value),
+          observacoes: $("#pObs").value.trim(),
+        };
+
+        await updateMePaciente(data);
+        toast("Dados salvos!");
+      } catch (err) {
+        toast(inferFriendlyError(err));
+      }
+    });
+  }
+
+  loadMe();
+}
+
+
+/* -------- Médico (lista + detalhes + histórico dentro de detalhes) -------- */
+function renderMedico() {
+  const meta = getUserMeta();
+  const role = normalizeRole(meta.role || "");
+  if (!meta.token) {
+    toast("Faça login para acessar.");
+    return setTimeout(() => window.location.href = "index.html", 250);
+  }
+  if (role !== "MEDICO") {
+    toast("Acesso restrito.");
+    return setTimeout(() => window.location.href = "index.html", 250);
+  }
+
+  const root = $("#pageRoot");
+  root.innerHTML = `
+    <div class="page-center">
+      <div class="card">
+        <div class="card__header">
+          <h2 class="card__title">Pacientes cadastrados</h2>
+          <p class="card__subtitle">Busque e abra um paciente para ver detalhes e histórico familiar.</p>
+        </div>
+        <div class="card__body">
+          <div class="row">
+            <div class="field" style="flex:1;">
+              <label>Buscar</label>
+              <input id="mBusca" placeholder="nome..." />
+            </div>
+            <div class="field" style="width:220px;">
+              <label>&nbsp;</label>
+              <button class="btn btn--ghost" id="btnReloadPacientes" type="button">Recarregar</button>
+            </div>
+          </div>
+          <div class="hr"></div>
+          <div id="mLista" class="list">
+            <div class="muted">Carregando...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card--flat">
+        <div class="card__header">
+          <h2 class="card__title">Detalhes</h2>
+          <p class="card__subtitle" id="mSub">Selecione um paciente</p>
+        </div>
+        <div class="card__body" id="mDetalhes">
+          <div class="muted">Nenhum paciente selecionado.</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const state = {
+    pacientes: [],
+    selectedPacienteId: null
+  };
+
+  async function loadPacientes() {
+    const list = $("#mLista");
+    list.innerHTML = `<div class="muted">Carregando...</div>`;
+    try {
+      const pacientes = await fetchPacientes();
+      state.pacientes = Array.isArray(pacientes) ? pacientes : [];
+      renderLista();
+    } catch (err) {
+      list.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+    }
+  }
+
+  function renderLista() {
+    const list = $("#mLista");
+    const q = ($("#mBusca").value || "").trim().toLowerCase();
+
+    const filtered = state.pacientes.filter(p => {
+      const nome = String(p.nome || "").toLowerCase();
+      return !q || nome.includes(q);
+    });
+
+    const rHTML = filtered.length ? filtered.map(p => `
+      <div class="item">
+        <div class="item__top">
+          <div>
+            <p class="item__title">${escapeHTML(p.nome || "Paciente")}</p>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn--ghost" data-open="${p.idPaciente}">Abrir</button>
+          </div>
+        </div>
+      </div>
+    `).join("") : `
+      <div class="muted">
+        Nenhum paciente encontrado.
+        <div style="margin-top:8px;">
+          <strong>Dica:</strong> Isso normalmente acontece quando nenhum perfil de paciente foi criado no backend.
+          O paciente precisa ter registro em <code>Paciente</code> (endpoint <code>POST /profiles/paciente</code>).
+        </div>
+      </div>
+    `;
+
+    list.innerHTML = rHTML;
+
+    $$("[data-open]", list).forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.open);
+        if (!id) return;
+        state.selectedPacienteId = id;
+        renderDetalhes(id);
+      });
+    });
+  }
+
+  function renderHistoricoInDetails(pacienteId) {
+    const container = $("#mHistoricoBox");
+    if (!container) return;
+
+    container.innerHTML = `<div class="muted">Carregando histórico familiar...</div>`;
+
+    (async () => {
+      try {
+        const historicos = await fetchHistoricosByPacienteId(pacienteId);
+
+        if (!Array.isArray(historicos) || historicos.length === 0) {
+          container.innerHTML = `<div class="muted">Nenhum histórico familiar cadastrado para este paciente.</div>`;
+          return;
+        }
+
+        container.innerHTML = historicos.map(h => {
+          const versao = (h.versao != null) ? `v${h.versao}` : "—";
+          const criado = h.criadoEm ? new Date(h.criadoEm).toLocaleString() : "";
+          const textoHtml = historicoTextoParaHtml(h.textoHistorico);
+          const anexos = Array.isArray(h.anexos) ? h.anexos : [];
+
+          const anexosHtml = anexos.length ? anexos.map(a => {
+            const nome = a.nomeOriginal || `anexo-${a.id}`;
+            return `
+              <div>
+                <button class="btn btn--ghost" type="button" data-dl="${a.id}" data-name="${escapeAttr(nome)}">📎 ${escapeHTML(nome)}</button>
+              </div>
+            `;
+          }).join("") : "";
+
+          return `
+            <div class="item">
+              <div class="item__top">
+                <div>
+                  <p class="item__title">Histórico ${escapeHTML(versao)}</p>
+                  <div class="item__meta">${criado ? escapeHTML(criado) : ""}</div>
+                </div>
+                <span class="badge">histórico</span>
+              </div>
+              <div class="hr"></div>
+              <div>${textoHtml}</div>
+              ${anexosHtml ? `<div class="hr"></div><div>${anexosHtml}</div>` : ""}
+            </div>
+          `;
+        }).join("");
+
+        $$('[data-dl]', container).forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const anexoId = btn.dataset.dl;
+            const nome = btn.dataset.name || "arquivo";
+            try {
+              await downloadHistoricoAnexo(anexoId, nome);
+            } catch (err) {
+              toast(inferFriendlyError(err));
+            }
+          });
+        });
+
+      } catch (err) {
+        container.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+      }
+    })();
+  }
+
+  async function renderDetalhes(id) {
+    $("#mSub").textContent = "Carregando...";
+    $("#mDetalhes").innerHTML = `<div class="muted">Carregando...</div>`;
+
+    try {
+      const p = await fetchPacienteById(id);
+      $("#mSub").textContent = `${p.nome || "Paciente"}`;
+
+      const g = generoLabel(p.genero);
+
+      $("#mDetalhes").innerHTML = `
+        <div class="item">
+          <div class="muted">Nome</div><div>${escapeHTML(p.nome || "—")}</div>
+          <div class="hr"></div>
+          <div class="muted">Nascimento</div><div>${escapeHTML(p.dataNascimento || "—")}</div>
+          <div class="hr"></div>
+          <div class="muted">Gênero</div><div>${escapeHTML(g)}</div>
+          <div class="hr"></div>
+          <div class="muted">Observações</div><div>${escapeHTML(p.observacoes || "—")}</div>
+        </div>
+
+        <div class="hr"></div>
+        <div class="badge">Histórico Familiar do paciente</div>
+        <div class="muted" style="margin:8px 0;">
+          A seguir você consegue acompanhar todos o históricos registrados pelo paciente:
+        </div>
+        <div id="mHistoricoBox" class="list">
+          <div class="muted">Carregando histórico familiar...</div>
+        </div>
+      `;
+
+      renderHistoricoInDetails(id);
+
+    } catch (err) {
+      $("#mSub").textContent = "Erro";
+      $("#mDetalhes").innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+    }
+  }
+
+  $("#mBusca").addEventListener("input", renderLista);
+  $("#btnReloadPacientes").addEventListener("click", loadPacientes);
+
+  loadPacientes();
+}
+
+
+/* -------- Histórico Familiar (somente Paciente cria; Médico não usa página) -------- */
+function renderHistorico() {
+  const meta = getUserMeta();
+  const role = normalizeRole(meta.role || "");
+  if (!meta.token) {
+    toast("Faça login para acessar.");
+    return setTimeout(() => window.location.href = "index.html", 250);
+  }
+
+  const isPaciente = role === "PACIENTE";
+  const isMedico = role === "MEDICO";
+
+  const root = $("#pageRoot");
+  root.innerHTML = `
+    <div class="card card--flat">
+      <div class="card__header">
+        <h2 class="card__title">Histórico Familiar </h2>
+        <p class="card__subtitle">
+          ${isPaciente
+            ? "Cada vez que você salva, um novo registro (versão) é criado. Você pode anexar exames depois também."
+            : "Apenas visualização."
+          }
+        </p>
+      </div>
+
+      <div class="card__body">
+        <form id="formHistorico" class="form">
+          <input id="hfPacienteId" type="hidden" />
+
+          <div class="row">
+            <div class="field" style="flex:1;">
+              <div class="muted" id="hfHint"></div>
+            </div>
+
+            ${isPaciente ? `
+              <div class="field">
+                <label>Anexar exames ou laudos (opcional)</label>
+                <input id="hfFiles" type="file" multiple accept="application/pdf,image/*" />
+                <div class="muted">PDF ou imagem.</div>
+              </div>
+            ` : ``}
+          </div>
+
+          ${isPaciente ? `
+            <div class="form__section">
+              <h3 class="section__title">Histórico (formulário)</h3>
+
+              <div class="field">
+                <label>1) Alguém da sua família já teve câncer de mama ou de ovário? Quem?</label>
+                <textarea id="hfQ1" required></textarea>
+              </div>
+
+              <div class="field">
+                <label>2) Idade aproximada do diagnóstico</label>
+                <input id="hfQ2" required />
+              </div>
+
+              <div class="field">
+                <label>3) Outros tipos de câncer na família</label>
+                <input id="hfQ3" required />
+              </div>
+
+              <div class="field">
+                <label>4) Teste genético (BRCA1/BRCA2) / resultado</label>
+                <input id="hfQ4" required />
+              </div>
+
+              <div class="field">
+                <label>5) Câncer de mama em homens na família?</label>
+                <input id="hfQ5" required />
+              </div>
+
+              <div class="field">
+                <label>6) Mamografia/ultrassom/autoexame (último)</label>
+                <input id="hfQ6" required />
+              </div>
+
+              <div class="field">
+                <label>7) Nódulos/biópsias/cirurgias/alterações</label>
+                <input id="hfQ7" required />
+              </div>
+
+              <div class="field">
+                <label>8) Reposição hormonal/anticoncepcional por muito tempo</label>
+                <input id="hfQ8" required />
+              </div>
+
+              <div class="field">
+                <label>9) Gestação/amamentação (tempo)</label>
+                <input id="hfQ9" required />
+              </div>
+
+              <div class="field">
+                <label>10) Outros problemas de saúde importantes</label>
+                <input id="hfQ10" required />
+              </div>
+
+              <div class="row">
+                <button class="btn" type="submit">Salvar nova versão</button>
+              </div>
+            </div>
+          ` : ``}
+
+          <div class="hr"></div>
+
+          <div class="form__section">
+            <h3 class="section__title">Versões salvas</h3>
+            <div id="hfList" class="list">
+              <div class="muted">Carregando...</div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  const inputPacienteId = $("#hfPacienteId");
+  const hint = $("#hfHint");
+  const list = $("#hfList");
+
+  const qp = qs("pacienteId");
+  if (qp) inputPacienteId.value = qp;
+
+  function buildTexto() {
+    // monta no formato "1) resposta", "2) resposta"... (pra permitir renderizar com perguntas)
+    const v = (id) => String($(id)?.value || "").trim();
+    return [
+      `1) ${v("#hfQ1")}`,
+      `2) ${v("#hfQ2")}`,
+      `3) ${v("#hfQ3")}`,
+      `4) ${v("#hfQ4")}`,
+      `5) ${v("#hfQ5")}`,
+      `6) ${v("#hfQ6")}`,
+      `7) ${v("#hfQ7")}`,
+      `8) ${v("#hfQ8")}`,
+      `9) ${v("#hfQ9")}`,
+      `10) ${v("#hfQ10")}`,
+    ].join("\n");
+  }
+
+  async function carregarLista() {
+    const pacienteId = Number(inputPacienteId.value);
+    if (!pacienteId) {
+      list.innerHTML = `<div class="muted">Paciente não definido.</div>`;
+      return;
+    }
+
+    list.innerHTML = `<div class="muted">Carregando...</div>`;
+
+    try {
+      const historicos = await fetchHistoricosByPacienteId(pacienteId);
+
+      if (!Array.isArray(historicos) || historicos.length === 0) {
+        list.innerHTML = `<div class="muted">Nenhuma versão ainda.</div>`;
+        return;
+      }
+
+      list.innerHTML = historicos.map(h => {
+        const versao = (h.versao != null) ? `v${h.versao}` : "—";
+        const criado = h.criadoEm ? new Date(h.criadoEm).toLocaleString() : "";
+        const textoHtml = historicoTextoParaHtml(h.textoHistorico);
+        const anexos = Array.isArray(h.anexos) ? h.anexos : [];
+
+        const anexosHtml = anexos.length ? anexos.map(a => {
+          const nome = a.nomeOriginal || `anexo-${a.id}`;
+          return `
+            <div>
+              <button class="btn btn--ghost" type="button" data-dl="${a.id}" data-name="${escapeAttr(nome)}">📎 ${escapeHTML(nome)}</button>
+            </div>
+          `;
+        }).join("") : "";
+
+        return `
+          <div class="item">
+            <div class="item__top">
+              <div>
+                <p class="item__title">Histórico ${escapeHTML(versao)}</p>
+                <div class="item__meta">${criado ? escapeHTML(criado) : ""}</div>
+              </div>
+              <span class="badge">histórico</span>
+            </div>
+            <div class="hr"></div>
+            <div>${textoHtml}</div>
+            ${anexosHtml ? `<div class="hr"></div><div>${anexosHtml}</div>` : ""}
+          </div>
+        `;
+      }).join("");
+
+      $$('[data-dl]', list).forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const anexoId = btn.dataset.dl;
+          const nome = btn.dataset.name || "arquivo";
+          try {
+            await downloadHistoricoAnexo(anexoId, nome);
+          } catch (err) {
+            toast(inferFriendlyError(err));
+          }
+        });
+      });
+
+    } catch (err) {
+      list.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+    }
+  }
+
+  // Texto auxiliar (sem expor ID)
+  if (isPaciente) {
+    hint.textContent = "Você está registrando seu histórico familiar. Ao salvar, uma nova versão é criada.";
+  } else if (isMedico) {
+    hint.textContent = "Visualização do histórico familiar do paciente.";
+  } else {
+    hint.textContent = "Acesso restrito.";
+  }
+
+  // Preenche pacienteId (internamente) via /me quando for PACIENTE
+  (async () => {
+    try {
+      if (isPaciente) {
+        const me = await fetchMePaciente();
+        if (me?.idPaciente) inputPacienteId.value = String(me.idPaciente);
+      }
+    } catch (_) {}
+    carregarLista().catch(() => {});
+  })();
+
+  // Envio de nova versão (somente paciente)
+  $("#formHistorico").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!isPaciente) return;
+
+    const form = $("#formHistorico");
+    if (!form.reportValidity()) return;
+
+    const pacienteId = Number(inputPacienteId.value);
+    if (!pacienteId) return toast("Não consegui identificar seu perfil de paciente. Volte ao Painel e confirme seus dados.");
+
+    const textoHistorico = buildTexto();
+    const files = [...($("#hfFiles")?.files || [])];
+
+    try {
+      await createHistorico(pacienteId, textoHistorico);
+      toast("Versão salva! Enviando anexos...");
+
+      // anexos: se tiver, pega o último histórico e envia
+      if (files.length) {
+        const historicos = await fetchHistoricosByPacienteId(pacienteId);
+        const ultimo = Array.isArray(historicos) && historicos.length ? historicos[0] : null;
+        if (ultimo?.id) {
+          for (const f of files) await uploadHistoricoAnexo(ultimo.id, f);
+        }
+      }
+
+      toast("Tudo certo!");
+      // limpa arquivo
+      if ($("#hfFiles")) $("#hfFiles").value = "";
+      carregarLista();
+
+    } catch (err) {
+      toast(inferFriendlyError(err));
+    }
+  });
+}
+
+
+/* ---------------- Boot ---------------- */
+(function boot() {
+  const page = document.body.dataset.page || "home";
+  const meta = getUserMeta();
+  const logged = !!meta.token;
+  const role = normalizeRole(meta.role || "");
+
+  // requisito #2: se já estiver logado, não entra no cadastro
+  if (page === "cadastro" && logged) {
+    goPanelByRole(role);
+    return;
+  }
+
+  $("#app").innerHTML = buildLayout(page);
+  bindCommon();
+
+  if (page === "home") renderHome();
+  if (page === "cadastro") renderCadastro();
+  if (page === "paciente") renderPaciente();
+  if (page === "medico") renderMedico();
+  if (page === "historico") renderHistorico();
+})();

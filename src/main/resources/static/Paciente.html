@@ -1,129 +1,13 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <title>Página do Paciente - Viva Mama</title>
+<!doctype html>
+<html lang="pt-br">
+<head><link rel="icon" href="./favicon.ico">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Viva Mama • Paciente</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
-  <header>
-    <h1>Viva Mama</h1>
-    <nav>
-      <a href="index.html">Início</a> |
-      <a href="LoginUser.html">Sair / Trocar usuário</a>
-    </nav>
-  </header>
-
-  <hr />
-
-  <main>
-    <h2>Bem-vindo à página de paciente!</h2>
-   
-    <p>em desenvolvimento...</p>
-
-    <!-- LINK PARA O FORM DE HISTÓRICO FAMILIAR DETALHADO -->
-    <p>
-     <a href="/HistoricoFamiliar.html">
-      Preencher histórico familiar detalhado e anexar exames
-    </a>
-     
-    </p>
-     
-    <section>
-      <h3>Atualizar meus dados</h3>
-
-      <form id="formAtualizarPaciente">
-        <div>
-          <label>Nome:
-            <input type="text" name="nome" required />
-          </label>
-        </div>
-        <div>
-          <label>Data de Nascimento:
-            <input type="number" name="dataNascimento" required />
-          </label>
-        </div>
-        <div>
-          <label>Gênero (M/F/outra letra):
-            <input type="text" name="genero" maxlength="1" required />
-          </label>
-        </div>
-        <div>
-          <label>Histórico Familiar:
-            <input type="text" name="historicoFamiliar" />
-          </label>
-        </div>
-        <div>
-          <label>Observações:
-            <input type="text" name="observacoes" />
-          </label>
-        </div>
-
-        <button type="submit">Salvar alterações</button>
-      </form>
-
-      <p id="msgAtualizarPaciente"></p>
-    </section>
-  </main>
-
-  <script>
-    function carregarInfoUsuarioPaciente() {
-      const el = document.getElementById("infoUsuarioPaciente");
-      const userIdField = document.getElementById("pacienteUserId");
-
-      try {
-        const str = localStorage.getItem("vivaMamaUser");
-        if (!str) {
-          el.textContent = "Nenhum usuário logado encontrado no navegador.";
-          return;
-        }
-        const info = JSON.parse(str);
-        el.textContent = "Usuário logado: ID " + info.userId + " (" + info.role + ")";
-        userIdField.value = info.userId || "";
-      } catch (e) {
-        el.textContent = "Não foi possível ler informações de login.";
-      }
-    }
-
-    async function apiPut(path, body) {
-      const resp = await fetch(path, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      if (!resp.ok) {
-        const txt = await resp.text();
-        throw new Error("HTTP " + resp.status + " - " + (txt || resp.statusText));
-      }
-      return resp.json();
-    }
-
-    document.getElementById("formAtualizarPaciente").addEventListener("submit", async function (e) {
-      e.preventDefault();
-
-      const form = e.target;
-      const msg = document.getElementById("msgAtualizarPaciente");
-
-      const body = {
-        userId: Number(form.userId.value),
-        nome: form.nome.value,
-        dataNascimento: Number(form.dataNascimento.value),
-        genero: form.genero.value,
-        historicoFamiliar: form.historicoFamiliar.value || "",
-        observacoes: form.observacoes.value || ""
-      };
-
-      msg.textContent = "Enviando atualização...";
-
-      try {
-        const json = await apiPut("/profiles/paciente", body);
-        msg.textContent = "Dados do paciente atualizados com sucesso.";
-        console.log("Resposta atualização paciente:", json);
-      } catch (erro) {
-        msg.textContent = "Erro ao atualizar dados do paciente: " + erro.message;
-      }
-    });
-
-    document.addEventListener("DOMContentLoaded", carregarInfoUsuarioPaciente);
-  </script>
+<body data-page="paciente">
+  <div id="app"></div>
+  <script src="app.js"></script>
 </body>
 </html>

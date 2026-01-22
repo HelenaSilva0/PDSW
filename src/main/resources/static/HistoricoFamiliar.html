@@ -1,75 +1,14 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <title>Histórico de Saúde – VivaMama</title>
+<!doctype html>
+<html lang="pt-br">
+<head><link rel="icon" href="./favicon.ico">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Viva Mama • Histórico Familiar</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
-<h1>Seu histórico de saúde</h1>
 
-<p>
-    Aqui você pode contar, com calma, como é o histórico de saúde da sua família e o seu próprio histórico.
-    Não precisa saber tudo certinho: escreva o que lembrar. Essas informações ajudam o médico a entender
-    melhor o seu risco e a cuidar de você de forma mais personalizada.
-</p>
-
-<script>
-    const params = new URLSearchParams(window.location.search);
-    if (params.has("sucesso")) {
-        document.write('<p style="color: green;">Histórico salvo com sucesso!</p>');
-    }
-</script>
-
-<form action="/historico-familiar/salvar"
-      method="post"
-      enctype="multipart/form-data">
-
-    <div>
-        <label for="textoHistorico"><strong>1. Conte sobre sua família e sobre você</strong></label><br>
-
-        <p><strong>Histórico familiar (família):</strong></p>
-        <ul>
-            <li>Alguém da sua família já teve câncer de mama ou de ovário? Quem? (mãe, irmã, avó, tia, etc.)</li>
-            <li>Você lembra a idade aproximada em que essa pessoa recebeu o diagnóstico?</li>
-            <li>Alguém da família já teve outros tipos de câncer? Quais?</li>
-            <li>Alguém já fez teste genético (ex.: BRCA1/BRCA2)? Se souber, escreva o resultado.</li>
-            <li>Existe algum caso de câncer de mama em homens na família?</li>
-        </ul>
-
-        <p><strong>Histórico pessoal (você):</strong></p>
-        <ul>
-            <li>Você já fez mamografia, ultrassom de mama ou ressonância? Quando foi o último?</li>
-            <li>Já teve nódulos, biópsias, cirurgias de mama ou alterações em exames?</li>
-            <li>Usa ou já usou reposição hormonal ou pílula anticoncepcional por muito tempo?</li>
-            <li>Já esteve grávida? Amamentou? Por quanto tempo?</li>
-            <li>Tem outros problemas de saúde importantes (ex.: diabetes, hipertensão, doenças autoimunes)?</li>
-        </ul>
-
-        <textarea id="textoHistorico" name="textoHistorico"
-                  rows="12" cols="80"
-                  placeholder="Exemplo: Na minha família, minha mãe teve câncer de mama aos 45 anos e minha avó materna câncer de ovário por volta dos 60. Eu já fiz duas mamografias, a última em 2023, que mostrou um nódulo benigno. Já usei anticoncepcional por cerca de 8 anos e tive uma gestação com amamentação por 1 ano..."
-                  required></textarea>
-    </div>
-
-    <div>
-        <label for="exames"><strong>2. Anexar exames ou laudos (opcional)</strong></label><br>
-        <p>
-            Se você tiver laudos de mamografia, ultrassom ou outros exames relacionados,
-            pode anexar aqui (PDF ou imagem).
-        </p>
-        <input id="exames" type="file" name="exames" multiple>
-    </div>
-
-    <div style="margin-top: 10px;">
-        <small>
-            As informações enviadas serão usadas apenas dentro do sistema VivaMama, para acompanhar sua saúde
-            e apoiar a orientação médica.
-        </small>
-    </div>
-
-    <br>
-    <button type="submit">Salvar histórico</button>
-</form>
-
+<body data-page="historico">
+  <div id="app"></div>
+  <script src="app.js"></script>
 </body>
 </html>
