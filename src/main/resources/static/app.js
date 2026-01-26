@@ -324,6 +324,14 @@ async function fetchPacienteById(id) {
 async function fetchHistoricosByPacienteId(idPaciente) {
   return apiFetch(`/historico-familiar/paciente/${idPaciente}`, { method: "GET" });
 }
+
+async function createHistoricoSnapshot({ pacienteId, textoHistorico }) {
+  return apiFetch("/historico-familiar/snapshots", {
+    method: "POST",
+    body: JSON.stringify({ pacienteId, textoHistorico }),
+  });
+}
+
 async function downloadHistoricoAnexo(anexoId, nomeOriginal) {
   const token = getToken();
   if (!token) throw new Error("Faça login para baixar anexos.");
@@ -349,18 +357,44 @@ async function downloadHistoricoAnexo(anexoId, nomeOriginal) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// paciente cria snapshot e anexa (novo back)
-async function createHistoricoSnapshot({ pacienteId, textoHistorico }) {
-  return apiFetch("/historico-familiar/snapshots", {
-    method: "POST",
-    body: JSON.stringify({ pacienteId, textoHistorico }),
-  });
+/* ---------------- Exames (upload separado) ---------------- */
+async function fetchExamesByPacienteId(idPaciente) {
+  return apiFetch(`/exames/paciente/${idPaciente}`, { method: "GET" });
 }
-async function uploadHistoricoAnexos({ historicoId, examesFiles }) {
+
+async function uploadExame({ pacienteId, descricao, file }) {
   const fd = new FormData();
-  (examesFiles || []).forEach(f => fd.append("exames", f));
-  return apiFetch(`/historico-familiar/snapshots/${historicoId}/anexos`, { method: "POST", body: fd });
+  fd.append("pacienteId", String(pacienteId));
+  fd.append("descricao", String(descricao || ""));
+  fd.append("arquivo", file);
+  return apiFetch("/exames", { method: "POST", body: fd });
 }
+
+async function downloadExame(exameId, nomeOriginal) {
+  const token = getToken();
+  if (!token) throw new Error("Faça login para baixar anexos.");
+
+  const res = await fetch(API + `/exames/${exameId}`, {
+    headers: { "Authorization": `Bearer ${token}` },
+    redirect: "follow"
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => "");
+    throw new Error(msg || `Erro ${res.status}`);
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nomeOriginal || `exame-${exameId}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 
 /* ---------------- Layout ---------------- */
 function logoSVG() {
@@ -383,8 +417,9 @@ function buildLayout(page) {
   const role = normalizeRole(meta.role || "");
   const painelHref = logged ? (role === "PACIENTE" ? "paciente.html" : "medico.html") : "#";
 
-  // ✅ Para médico: Histórico Familiar NÃO fica no menu (ele vê no DETALHES)
+ 
   const showHistoricoMenu = logged && role === "PACIENTE";
+  const showExamesMenu = logged && role === "PACIENTE";
 
   const perfilLabel = role === "PACIENTE" ? "Paciente" : (role === "MEDICO" ? "Médico(a)" : "");
 
@@ -403,7 +438,8 @@ function buildLayout(page) {
           <a class="nav__link" href="index.html">Início</a>
           <a class="nav__link" id="navCadastro" href="cadastro.html" ${logged ? "hidden" : ""}>Cadastro</a>
 
-          <a class="nav__link" id="navHistorico" href="HistoricoFamiliar.html" ${showHistoricoMenu ? "" : "hidden"}>Histórico Familiar</a>
+		  <a class="nav__link" id="navHistorico" href="HistoricoFamiliar.html" ${showHistoricoMenu ? "" : "hidden"}>Histórico Familiar</a>
+		  <a class="nav__link" id="navExames" href="Exames.html" ${showExamesMenu ? "" : "hidden"}>Exames</a>
           <a class="nav__link" id="navPainel" href="${painelHref}" ${logged ? "" : "hidden"}>Painel</a>
 
           <span class="badge" id="navPerfil" ${logged ? "" : "hidden"}>Área de <strong>${escapeHTML(perfilLabel)}</strong></span>
@@ -836,7 +872,7 @@ function renderPaciente() {
 }
 
 
-/* -------- Médico (lista + detalhes + histórico dentro de detalhes) -------- */
+//* -------- Médico (lista + detalhes + histórico + exames dentro de detalhes) -------- */
 function renderMedico() {
   const meta = getUserMeta();
   const role = normalizeRole(meta.role || "");
@@ -855,7 +891,7 @@ function renderMedico() {
       <div class="card">
         <div class="card__header">
           <h2 class="card__title">Pacientes cadastrados</h2>
-          <p class="card__subtitle">Busque e abra um paciente para ver detalhes e histórico familiar.</p>
+          <p class="card__subtitle">Busque e abra um paciente para ver detalhes, histórico familiar e exames.</p>
         </div>
         <div class="card__body">
           <div class="row">
@@ -887,10 +923,7 @@ function renderMedico() {
     </div>
   `;
 
-  const state = {
-    pacientes: [],
-    selectedPacienteId: null
-  };
+  const state = { pacientes: [], selectedPacienteId: null };
 
   async function loadPacientes() {
     const list = $("#mLista");
@@ -913,28 +946,28 @@ function renderMedico() {
       return !q || nome.includes(q);
     });
 
-    const rHTML = filtered.length ? filtered.map(p => `
-      <div class="item">
-        <div class="item__top">
-          <div>
-            <p class="item__title">${escapeHTML(p.nome || "Paciente")}</p>
-          </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="btn btn--ghost" data-open="${p.idPaciente}">Abrir</button>
+    list.innerHTML = filtered.length
+      ? filtered.map(p => `
+        <div class="item">
+          <div class="item__top">
+            <div>
+              <p class="item__title">${escapeHTML(p.nome || "Paciente")}</p>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn btn--ghost" data-open="${p.idPaciente}">Abrir</button>
+            </div>
           </div>
         </div>
-      </div>
-    `).join("") : `
-      <div class="muted">
-        Nenhum paciente encontrado.
-        <div style="margin-top:8px;">
-          <strong>Dica:</strong> Isso normalmente acontece quando nenhum perfil de paciente foi criado no backend.
-          O paciente precisa ter registro em <code>Paciente</code> (endpoint <code>POST /profiles/paciente</code>).
+      `).join("")
+      : `
+        <div class="muted">
+          Nenhum paciente encontrado.
+          <div style="margin-top:8px;">
+            <strong>Dica:</strong> isso costuma acontecer quando nenhum perfil de paciente foi criado no backend
+            (<code>POST /profiles/paciente</code>).
+          </div>
         </div>
-      </div>
-    `;
-
-    list.innerHTML = rHTML;
+      `;
 
     $$("[data-open]", list).forEach(btn => {
       btn.addEventListener("click", () => {
@@ -946,58 +979,154 @@ function renderMedico() {
     });
   }
 
-  function renderHistoricoInDetails(pacienteId) {
-    const container = $("#mHistoricoBox");
-    if (!container) return;
+  // Helper para renderizar um card de histórico
+  function renderHistoricoItem(h) {
+    const versao = (h.versao != null) ? `v${h.versao}` : "—";
+    const criado = h.criadoEm ? new Date(h.criadoEm).toLocaleString() : "";
+    const textoHtml = historicoTextoParaHtml(h.textoHistorico);
+    const anexos = Array.isArray(h.anexos) ? h.anexos : [];
 
-    container.innerHTML = `<div class="muted">Carregando histórico familiar...</div>`;
+    const anexosHtml = anexos.length ? anexos.map(a => {
+      const nome = a.nomeOriginal || `anexo-${a.id}`;
+      return `
+        <div>
+          <button class="btn btn--ghost" type="button"
+                  data-dl-hf="${a.id}" data-name="${escapeAttr(nome)}">
+            📎 ${escapeHTML(nome)}
+          </button>
+        </div>
+      `;
+    }).join("") : "";
+
+    return `
+      <div class="item">
+        <div class="item__top">
+          <div>
+            <p class="item__title">Histórico ${escapeHTML(versao)}</p>
+            <div class="item__meta">${criado ? escapeHTML(criado) : ""}</div>
+          </div>
+          <span class="badge">histórico</span>
+        </div>
+        <div class="hr"></div>
+        <div>${textoHtml}</div>
+        ${anexosHtml ? `<div class="hr"></div><div>${anexosHtml}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function bindHistoricoDownloads(rootEl) {
+    if (!rootEl) return;
+    $$('[data-dl-hf]', rootEl).forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const anexoId = btn.dataset.dlHf;
+        const nome = btn.dataset.name || "arquivo";
+        try {
+          await downloadHistoricoAnexo(anexoId, nome);
+        } catch (err) {
+          toast(inferFriendlyError(err));
+        }
+      });
+    });
+  }
+
+  function renderHistoricoInDetails(pacienteId) {
+    const latestBox = $("#mHistoricoLatest");
+    const prevBox = $("#mHistoricoPrev");
+    const btnPrev = $("#btnMhfPrev");
+
+    if (!latestBox) return;
+
+    latestBox.innerHTML = `<div class="muted">Carregando histórico...</div>`;
+	if (prevBox) { prevBox.classList.add("vm-hidden"); prevBox.innerHTML = ""; }
+    if (btnPrev) { btnPrev.disabled = true; btnPrev.textContent = "Exibir histórico familiar anterior"; }
 
     (async () => {
       try {
         const historicos = await fetchHistoricosByPacienteId(pacienteId);
 
         if (!Array.isArray(historicos) || historicos.length === 0) {
-          container.innerHTML = `<div class="muted">Nenhum histórico familiar cadastrado para este paciente.</div>`;
+          latestBox.innerHTML = `<div class="muted">Nenhum histórico familiar cadastrado.</div>`;
           return;
         }
 
-        container.innerHTML = historicos.map(h => {
-          const versao = (h.versao != null) ? `v${h.versao}` : "—";
-          const criado = h.criadoEm ? new Date(h.criadoEm).toLocaleString() : "";
-          const textoHtml = historicoTextoParaHtml(h.textoHistorico);
-          const anexos = Array.isArray(h.anexos) ? h.anexos : [];
+        const latest = historicos[0];
+        const anteriores = historicos.slice(1);
 
-          const anexosHtml = anexos.length ? anexos.map(a => {
-            const nome = a.nomeOriginal || `anexo-${a.id}`;
-            return `
-              <div>
-                <button class="btn btn--ghost" type="button" data-dl="${a.id}" data-name="${escapeAttr(nome)}">📎 ${escapeHTML(nome)}</button>
-              </div>
-            `;
-          }).join("") : "";
+        latestBox.innerHTML = renderHistoricoItem(latest);
+        bindHistoricoDownloads(latestBox);
+
+        if (prevBox) {
+          prevBox.innerHTML = anteriores.length
+            ? anteriores.map(renderHistoricoItem).join("")
+            : `<div class="muted">Não há versões anteriores.</div>`;
+			prevBox.classList.add("vm-hidden");
+          bindHistoricoDownloads(prevBox);
+        }
+
+        if (btnPrev) {
+          btnPrev.disabled = anteriores.length === 0;
+          btnPrev.onclick = () => {
+            if (!prevBox) return;
+			const abrir = prevBox.classList.contains("vm-hidden");
+			prevBox.classList.toggle("vm-hidden", !abrir);
+			btnPrev.textContent = abrir
+			  ? "Ocultar histórico familiar anterior"
+			  : "Exibir histórico familiar anterior";
+          };
+        }
+
+      } catch (err) {
+        latestBox.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+      }
+    })();
+  }
+
+  function renderExamesInDetails(pacienteId) {
+    const container = $("#mExamesBox");
+    if (!container) return;
+
+    container.innerHTML = `<div class="muted">Carregando exames...</div>`;
+
+    (async () => {
+      try {
+        const exames = await fetchExamesByPacienteId(pacienteId);
+
+        if (!Array.isArray(exames) || exames.length === 0) {
+          container.innerHTML = `<div class="muted">Nenhum exame enviado pelo paciente.</div>`;
+          return;
+        }
+
+        container.innerHTML = exames.map(e => {
+          const versao = (e.versao != null) ? `v${e.versao}` : "—";
+          const enviado = e.enviadoEm ? new Date(e.enviadoEm).toLocaleString() : "";
+          const desc = String(e.descricao || "").trim();
+          const nome = e.nomeOriginal || "arquivo";
 
           return `
             <div class="item">
               <div class="item__top">
                 <div>
-                  <p class="item__title">Histórico ${escapeHTML(versao)}</p>
-                  <div class="item__meta">${criado ? escapeHTML(criado) : ""}</div>
+                  <p class="item__title">Exame ${escapeHTML(versao)}</p>
+                  <div class="item__meta">${escapeHTML(enviado)}</div>
                 </div>
-                <span class="badge">histórico</span>
+                <span class="badge">exame</span>
               </div>
+
+              ${desc ? `<div class="muted" style="margin-top:6px;">Descrição</div><div>${escapeHTML(desc)}</div>` : ""}
+
               <div class="hr"></div>
-              <div>${textoHtml}</div>
-              ${anexosHtml ? `<div class="hr"></div><div>${anexosHtml}</div>` : ""}
+              <button class="btn btn--ghost" type="button"
+                      data-dl-exame="${e.id}" data-name="${escapeAttr(nome)}">📎 ${escapeHTML(nome)}</button>
             </div>
           `;
         }).join("");
 
-        $$('[data-dl]', container).forEach(btn => {
+        $$('[data-dl-exame]', container).forEach(btn => {
           btn.addEventListener('click', async () => {
-            const anexoId = btn.dataset.dl;
+            const exameId = btn.dataset.dlExame;
             const nome = btn.dataset.name || "arquivo";
             try {
-              await downloadHistoricoAnexo(anexoId, nome);
+              await downloadExame(exameId, nome);
             } catch (err) {
               toast(inferFriendlyError(err));
             }
@@ -1031,17 +1160,34 @@ function renderMedico() {
           <div class="muted">Observações</div><div>${escapeHTML(p.observacoes || "—")}</div>
         </div>
 
+		<div class="hr"></div>
+		<div class="badge">Histórico Familiar do paciente</div>
+		<div class="muted" style="margin:8px 0;">
+		  Mostrando a versão mais recente. Use o botão para ver versões anteriores.
+		</div>
+
+		<div id="mHistoricoLatest" class="list">
+		  <div class="muted">Carregando histórico...</div>
+		</div>
+
+		<div class="row" style="align-items:flex-start; gap:10px; flex-wrap:wrap; margin-top:10px;">
+		  <button class="btn btn--ghost" type="button" id="btnMhfPrev">Exibir histórico familiar anterior</button>
+		</div>
+
+		<div id="mHistoricoPrev" class="list vm-hidden"></div>
+
         <div class="hr"></div>
-        <div class="badge">Histórico Familiar do paciente</div>
+        <div class="badge">Exames anexados</div>
         <div class="muted" style="margin:8px 0;">
-          A seguir você consegue acompanhar todos o históricos registrados pelo paciente:
+          Exames enviados pelo paciente (com descrição).
         </div>
-        <div id="mHistoricoBox" class="list">
-          <div class="muted">Carregando histórico familiar...</div>
+        <div id="mExamesBox" class="list">
+          <div class="muted">Carregando exames...</div>
         </div>
       `;
 
       renderHistoricoInDetails(id);
+      renderExamesInDetails(id);
 
     } catch (err) {
       $("#mSub").textContent = "Erro";
@@ -1054,6 +1200,7 @@ function renderMedico() {
 
   loadPacientes();
 }
+
 
 
 /* -------- Histórico Familiar (somente Paciente cria; Médico não usa página) -------- */
@@ -1072,10 +1219,10 @@ function renderHistorico() {
   root.innerHTML = `
     <div class="card card--flat">
       <div class="card__header">
-        <h2 class="card__title">Histórico Familiar </h2>
+        <h2 class="card__title">Histórico Familiar</h2>
         <p class="card__subtitle">
           ${isPaciente
-            ? "Cada vez que você salva, um novo registro (versão) é criado. Você pode anexar exames depois também."
+            ? "Cada vez que você salva, uma nova versão do histórico é criada. Exames ficam na página “Exames”."
             : "Apenas visualização."
           }
         </p>
@@ -1089,14 +1236,6 @@ function renderHistorico() {
             <div class="field" style="flex:1;">
               <div class="muted" id="hfHint"></div>
             </div>
-
-            ${isPaciente ? `
-              <div class="field">
-                <label>Anexar exames ou laudos (opcional)</label>
-                <input id="hfFiles" type="file" multiple accept="application/pdf,image/*" />
-                <div class="muted">PDF ou imagem.</div>
-              </div>
-            ` : ``}
           </div>
 
           ${isPaciente ? `
@@ -1153,9 +1292,12 @@ function renderHistorico() {
                 <input id="hfQ10" required />
               </div>
 
-              <div class="row">
+              <div class="row" style="align-items:flex-start; gap:10px; flex-wrap:wrap;">
                 <button class="btn" type="submit">Salvar nova versão</button>
+                <button class="btn btn--ghost" type="button" id="btnHfPrev">Exibir histórico familiar anterior</button>
               </div>
+
+              <div id="hfPrevBox" class="item" hidden></div>
             </div>
           ` : ``}
 
@@ -1176,11 +1318,14 @@ function renderHistorico() {
   const hint = $("#hfHint");
   const list = $("#hfList");
 
+  const prevBtn = $("#btnHfPrev");
+  const prevBox = $("#hfPrevBox");
+  let prevHistorico = null;
+
   const qp = qs("pacienteId");
   if (qp) inputPacienteId.value = qp;
 
   function buildTexto() {
-    // monta no formato "1) resposta", "2) resposta"... (pra permitir renderizar com perguntas)
     const v = (id) => String($(id)?.value || "").trim();
     return [
       `1) ${v("#hfQ1")}`,
@@ -1196,6 +1341,30 @@ function renderHistorico() {
     ].join("\n");
   }
 
+  function renderPrevBox() {
+    if (!prevBox) return;
+    if (!prevHistorico) {
+      prevBox.hidden = true;
+      prevBox.innerHTML = "";
+      return;
+    }
+    const versao = (prevHistorico.versao != null) ? `v${prevHistorico.versao}` : "—";
+    const criado = prevHistorico.criadoEm ? new Date(prevHistorico.criadoEm).toLocaleString() : "";
+    const textoHtml = historicoTextoParaHtml(prevHistorico.textoHistorico);
+
+    prevBox.innerHTML = `
+      <div class="item__top">
+        <div>
+          <p class="item__title">Histórico anterior ${escapeHTML(versao)}</p>
+          <div class="item__meta">${criado ? escapeHTML(criado) : ""}</div>
+        </div>
+        <span class="badge">anterior</span>
+      </div>
+      <div class="hr"></div>
+      <div>${textoHtml}</div>
+    `;
+  }
+
   async function carregarLista() {
     const pacienteId = Number(inputPacienteId.value);
     if (!pacienteId) {
@@ -1207,6 +1376,11 @@ function renderHistorico() {
 
     try {
       const historicos = await fetchHistoricosByPacienteId(pacienteId);
+
+      // ✅ define a “anterior” como a segunda mais recente
+      prevHistorico = Array.isArray(historicos) && historicos.length >= 2 ? historicos[1] : null;
+      if (prevBtn) prevBtn.disabled = !prevHistorico;
+      if (prevBox && !prevBox.hidden) renderPrevBox();
 
       if (!Array.isArray(historicos) || historicos.length === 0) {
         list.innerHTML = `<div class="muted">Nenhuma versão ainda.</div>`;
@@ -1261,16 +1435,11 @@ function renderHistorico() {
     }
   }
 
-  // Texto auxiliar (sem expor ID)
-  if (isPaciente) {
-    hint.textContent = "Você está registrando seu histórico familiar. Ao salvar, uma nova versão é criada.";
-  } else if (isMedico) {
-    hint.textContent = "Visualização do histórico familiar do paciente.";
-  } else {
-    hint.textContent = "Acesso restrito.";
-  }
+  if (isPaciente) hint.textContent = "Você está registrando seu histórico familiar. Ao salvar, uma nova versão é criada.";
+  else if (isMedico) hint.textContent = "Visualização do histórico familiar do paciente.";
+  else hint.textContent = "Acesso restrito.";
 
-  // Preenche pacienteId (internamente) via /me quando for PACIENTE
+  //  PacienteId via /me
   (async () => {
     try {
       if (isPaciente) {
@@ -1281,7 +1450,14 @@ function renderHistorico() {
     carregarLista().catch(() => {});
   })();
 
-  // Envio de nova versão (somente paciente)
+  //  botão histórico anterior
+  prevBtn?.addEventListener("click", () => {
+    if (!prevHistorico) return toast("Ainda não existe histórico anterior.");
+    prevBox.hidden = !prevBox.hidden;
+    if (!prevBox.hidden) renderPrevBox();
+  });
+
+  //  submit correto (SEM upload de exames aqui)
   $("#formHistorico").addEventListener("submit", async (e) => {
     e.preventDefault();
     if (!isPaciente) return;
@@ -1290,35 +1466,177 @@ function renderHistorico() {
     if (!form.reportValidity()) return;
 
     const pacienteId = Number(inputPacienteId.value);
-    if (!pacienteId) return toast("Não consegui identificar seu perfil de paciente. Volte ao Painel e confirme seus dados.");
+    if (!pacienteId) return toast("Não consegui identificar seu perfil de paciente.");
 
     const textoHistorico = buildTexto();
-    const files = [...($("#hfFiles")?.files || [])];
 
     try {
-      await createHistorico(pacienteId, textoHistorico);
-      toast("Versão salva! Enviando anexos...");
-
-      // anexos: se tiver, pega o último histórico e envia
-      if (files.length) {
-        const historicos = await fetchHistoricosByPacienteId(pacienteId);
-        const ultimo = Array.isArray(historicos) && historicos.length ? historicos[0] : null;
-        if (ultimo?.id) {
-          for (const f of files) await uploadHistoricoAnexo(ultimo.id, f);
-        }
-      }
-
-      toast("Tudo certo!");
-      // limpa arquivo
-      if ($("#hfFiles")) $("#hfFiles").value = "";
-      carregarLista();
-
+      await createHistoricoSnapshot({ pacienteId, textoHistorico }); 
+      toast("Versão salva!");
+      await carregarLista();
     } catch (err) {
       toast(inferFriendlyError(err));
     }
   });
 }
 
+function renderExames() {
+  const meta = getUserMeta();
+  const role = normalizeRole(meta.role || "");
+  if (!meta.token) {
+    toast("Faça login para acessar.");
+    return setTimeout(() => window.location.href = "index.html", 250);
+  }
+  if (role !== "PACIENTE") {
+    toast("Acesso restrito.");
+    return setTimeout(() => window.location.href = "index.html", 250);
+  }
+
+  const root = $("#pageRoot");
+  root.innerHTML = `
+    <div class="card card--flat">
+      <div class="card__header">
+        <h2 class="card__title">Exames e laudos</h2>
+        <p class="card__subtitle">Anexe seus exames separadamente e descreva brevemente do que se trata.</p>
+      </div>
+      <div class="card__body">
+        <div class="muted" id="eLoading">Carregando...</div>
+
+        <div id="eBox" hidden>
+          <form id="formExame" class="form">
+            <input id="ePacienteId" type="hidden" />
+
+            <div class="field">
+              <label>Descrição do exame</label>
+              <input id="eDescricao" maxlength="500"
+                     placeholder="ex: Mamografia (jan/2026), Ultrassom, Laudo..." required />
+              <div class="muted">Essa descrição aparece para o médico também.</div>
+            </div>
+
+            <div class="field">
+              <label>Arquivo</label>
+              <input id="eArquivo" type="file" accept="application/pdf,image/*" required />
+              <div class="muted">PDF ou imagem.</div>
+            </div>
+
+            <div class="row">
+              <button class="btn" type="submit">Enviar exame</button>
+            </div>
+          </form>
+
+          <div class="hr"></div>
+          <div class="form__section">
+            <h3 class="section__title">Versões enviadas</h3>
+            <div id="eList" class="list">
+              <div class="muted">Carregando...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const inputPacienteId = $("#ePacienteId");
+  const list = $("#eList");
+
+  async function carregarLista() {
+    const pacienteId = Number(inputPacienteId.value);
+    if (!pacienteId) {
+      list.innerHTML = `<div class="muted">Paciente não definido.</div>`;
+      return;
+    }
+
+    list.innerHTML = `<div class="muted">Carregando...</div>`;
+    try {
+      const exames = await fetchExamesByPacienteId(pacienteId);
+      if (!Array.isArray(exames) || exames.length === 0) {
+        list.innerHTML = `<div class="muted">Nenhum exame enviado ainda.</div>`;
+        return;
+      }
+
+      list.innerHTML = exames.map(e => {
+        const versao = (e.versao != null) ? `v${e.versao}` : "—";
+        const enviado = e.enviadoEm ? new Date(e.enviadoEm).toLocaleString() : "";
+        const desc = String(e.descricao || "").trim();
+        const nome = e.nomeOriginal || "arquivo";
+
+        return `
+          <div class="item">
+            <div class="item__top">
+              <div>
+                <p class="item__title">Exame ${versao}</p>
+                <div class="item__meta">${escapeHTML(enviado)}</div>
+              </div>
+              <span class="badge">exame</span>
+            </div>
+
+            ${desc ? `<div class="muted" style="margin-top:6px;">Descrição</div><div>${escapeHTML(desc)}</div>` : ""}
+
+            <div class="hr"></div>
+            <button class="btn btn--ghost" type="button"
+                    data-dl-exame="${e.id}" data-name="${escapeAttr(nome)}">📎 ${escapeHTML(nome)}</button>
+          </div>
+        `;
+      }).join("");
+
+      $$('[data-dl-exame]', list).forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const exameId = btn.dataset.dlExame;
+          const nome = btn.dataset.name || "arquivo";
+          try {
+            await downloadExame(exameId, nome);
+          } catch (err) {
+            toast(inferFriendlyError(err));
+          }
+        });
+      });
+
+    } catch (err) {
+      list.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+    }
+  }
+
+  (async () => {
+    try {
+      const me = await fetchMePaciente();
+      if (!me?.idPaciente) throw new Error("Perfil de paciente não encontrado.");
+      inputPacienteId.value = String(me.idPaciente);
+
+      $("#eLoading").hidden = true;
+      $("#eBox").hidden = false;
+
+      await carregarLista();
+    } catch (err) {
+      $("#eLoading").textContent = inferFriendlyError(err);
+    }
+  })();
+
+  $("#formExame").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const form = $("#formExame");
+    if (!form.reportValidity()) return;
+
+    const pacienteId = Number(inputPacienteId.value);
+    const descricao = $("#eDescricao").value.trim();
+    const file = $("#eArquivo").files?.[0];
+
+    if (!pacienteId) return toast("Não consegui identificar seu perfil de paciente.");
+    if (!file) return toast("Selecione um arquivo.");
+
+    try {
+      await uploadExame({ pacienteId, descricao, file });
+      toast("Exame enviado!");
+
+      $("#eDescricao").value = "";
+      $("#eArquivo").value = "";
+
+      await carregarLista();
+    } catch (err) {
+      toast(inferFriendlyError(err));
+    }
+  });
+}
 
 /* ---------------- Boot ---------------- */
 (function boot() {
@@ -1335,10 +1653,11 @@ function renderHistorico() {
 
   $("#app").innerHTML = buildLayout(page);
   bindCommon();
-
+  
   if (page === "home") renderHome();
   if (page === "cadastro") renderCadastro();
   if (page === "paciente") renderPaciente();
   if (page === "medico") renderMedico();
   if (page === "historico") renderHistorico();
+  if (page === "exames") renderExames();
 })();

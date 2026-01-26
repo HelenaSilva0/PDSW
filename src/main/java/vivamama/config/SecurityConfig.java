@@ -44,16 +44,17 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> {
                 auth.requestMatchers(
-                        "/",
-                        "/index.html",
-                        "/cadastro.html",
-                        "/paciente.html",
-                        "/medico.html",
-                        "/HistoricoFamiliar.html",
-                        "/app.js",
-                        "/styles.css",
-                        "/favicon.ico",
-                        "/auth/**"
+                		"/",
+                	    "/index.html",
+                	    "/cadastro.html",
+                	    "/paciente.html",
+                	    "/medico.html",
+                	    "/HistoricoFamiliar.html",
+                	    "/Exames.html",
+                	    "/app.js",
+                	    "/styles.css",
+                	    "/favicon.ico",
+                	    "/auth/**"
                 ).permitAll();
 
                 if (dev) {
