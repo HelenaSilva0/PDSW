@@ -22,32 +22,32 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const API = window.location.pathname.replace(/\/[^\/]*$/, ""); // mesma origem
 
 const STORAGE = {
-  token: "vm_token",
-  userId: "vm_userId",
-  role: "vm_role",
+	token: "vm_token",
+	userId: "vm_userId",
+	role: "vm_role",
 };
 
 const BANNERS = [
-  { title: "Autoexame: conheça seu corpo", text: "Observe mudanças e procure avaliação médica se notar nódulos, retrações, secreções ou alterações na pele." },
-  { title: "Mamografia salva vidas", text: "A mamografia pode detectar alterações precoces. Siga a orientação do seu médico e as diretrizes da sua região." },
-  { title: "Histórico familiar importa", text: "Informe casos em parentes próximos. Isso ajuda a definir rastreio e condutas personalizadas." },
-  { title: "Não é só nódulo", text: "Vermelhidão persistente, pele em 'casca de laranja' e dor localizada também precisam de investigação." }
+	{ title: "Autoexame: conheça seu corpo", text: "Observe mudanças e procure avaliação médica se notar nódulos, retrações, secreções ou alterações na pele." },
+	{ title: "Mamografia salva vidas", text: "A mamografia pode detectar alterações precoces. Siga a orientação do seu médico e as diretrizes da sua região." },
+	{ title: "Histórico familiar importa", text: "Informe casos em parentes próximos. Isso ajuda a definir rastreio e condutas personalizadas." },
+	{ title: "Não é só nódulo", text: "Vermelhidão persistente, pele em 'casca de laranja' e dor localizada também precisam de investigação." }
 ];
 
 /* ---------------- Utils ---------------- */
 function escapeHTML(str) {
-  return String(str ?? "")
-    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+	return String(str ?? "")
+		.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 function escapeAttr(str) { return escapeHTML(str).replaceAll("\n", " "); }
 
 function toast(msg) {
-  const el = $("#toast");
-  if (!el) return;
-  el.textContent = msg;
-  el.hidden = false;
-  setTimeout(() => (el.hidden = true), 2600);
+	const el = $("#toast");
+	if (!el) return;
+	el.textContent = msg;
+	el.hidden = false;
+	setTimeout(() => (el.hidden = true), 2600);
 }
 
 function openModal(id) { const m = $(id); if (m) m.setAttribute("aria-hidden", "false"); }
@@ -56,86 +56,83 @@ function closeModal(id) { const m = $(id); if (m) m.setAttribute("aria-hidden", 
 function setToken(token) { localStorage.setItem(STORAGE.token, token); }
 function getToken() { return localStorage.getItem(STORAGE.token) || ""; }
 
-function setUserMeta(userId, role) {
-  if (userId != null) localStorage.setItem(STORAGE.userId, String(userId));
-  if (role != null) localStorage.setItem(STORAGE.role, String(role));
-}
 function getUserMeta() {
   return {
-    userId: localStorage.getItem(STORAGE.userId),
-    role: localStorage.getItem(STORAGE.role),
     token: getToken(),
+    userId: Number(localStorage.getItem(STORAGE.userId) || 0) || null,
+    role: localStorage.getItem(STORAGE.role) || ""
   };
 }
+
 function clearAuth() {
-  localStorage.removeItem(STORAGE.token);
-  localStorage.removeItem(STORAGE.userId);
-  localStorage.removeItem(STORAGE.role);
+	localStorage.removeItem(STORAGE.token);
+	localStorage.removeItem(STORAGE.userId);
+	localStorage.removeItem(STORAGE.role);
 }
 
 function normalizeRole(roleStr) {
-  const r = (roleStr || "").toUpperCase();
-  if (r === "PACIENTE" || r === "ROLE_PACIENTE") return "PACIENTE";
-  if (r === "MEDICO" || r === "MÉDICO" || r === "ROLE_MEDICO") return "MEDICO";
-  return r;
+	const r = (roleStr || "").toUpperCase();
+	if (r === "PACIENTE" || r === "ROLE_PACIENTE") return "PACIENTE";
+	if (r === "MEDICO" || r === "MÉDICO" || r === "ROLE_MEDICO") return "MEDICO";
+	return r;
 }
 
 function normalizeGeneroChar(v) {
-  const s = String(v ?? "").trim().toUpperCase();
-  if (!s) return "N";
-  const c = s[0];
-  if (["F", "M", "O", "N"].includes(c)) return c;
-  return "N";
+	const s = String(v ?? "").trim().toUpperCase();
+	if (!s) return "N";
+	const c = s[0];
+	if (["F", "M", "O", "N"].includes(c)) return c;
+	return "N";
 }
 function generoLabel(c) {
-  const g = normalizeGeneroChar(c);
-  if (g === "F") return "Feminino";
-  if (g === "M") return "Masculino";
-  if (g === "O") return "Outro";
-  return "Não informado";
+	const g = normalizeGeneroChar(c);
+	if (g === "F") return "Feminino";
+	if (g === "M") return "Masculino";
+	if (g === "O") return "Outro";
+	return "Não informado";
 }
 
 const HISTORICO_PERGUNTAS = {
-  1: "Alguém da sua família já teve câncer de mama ou de ovário? Quem?",
-  2: "Idade aproximada do diagnóstico",
-  3: "Outros tipos de câncer na família",
-  4: "Teste genético (BRCA1/BRCA2) / resultado",
-  5: "Câncer de mama em homens na família?",
-  6: "Mamografia/ultrassom/autoexame (último)",
-  7: "Nódulos/biópsias/cirurgias/alterações",
-  8: "Reposição hormonal/anticoncepcional por muito tempo",
-  9: "Gestação/amamentação (tempo)",
-  10: "Outros problemas de saúde importantes",
+	1: "Alguém da sua família já teve câncer de mama ou de ovário? Quem?",
+	2: "Idade aproximada do diagnóstico",
+	3: "Outros tipos de câncer na família",
+	4: "Teste genético (BRCA1/BRCA2) / resultado",
+	5: "Câncer de mama em homens na família?",
+	6: "Mamografia/ultrassom/autoexame (último)",
+	7: "Nódulos/biópsias/cirurgias/alterações",
+	8: "Reposição hormonal/anticoncepcional por muito tempo",
+	9: "Gestação/amamentação (tempo)",
+	10: "Outros problemas de saúde importantes",
 };
 
 function parseHistoricoRespostas(textoHistorico) {
-  const t = String(textoHistorico || "");
-  const answers = {};
-  t.split(/\r?\n/).forEach(line => {
-    const m = line.trim().match(/^(\d{1,2})\)\s*(.*)$/);
-    if (m) answers[Number(m[1])] = (m[2] || "").trim();
-  });
-  return answers;
+	const t = String(textoHistorico || "");
+	const answers = {};
+	t.split(/\r?\n/).forEach(line => {
+		const m = line.trim().match(/^(\d{1,2})\)\s*(.*)$/);
+		if (m) answers[Number(m[1])] = (m[2] || "").trim();
+	});
+	return answers;
 }
 
 function historicoTextoParaHtml(textoHistorico) {
-  const t = String(textoHistorico || "").trim();
-  if (!t) return "<span class='muted'>(sem texto)</span>";
+	const t = String(textoHistorico || "").trim();
+	if (!t) return "<span class='muted'>(sem texto)</span>";
 
-  const ans = parseHistoricoRespostas(t);
-  const has = Object.keys(ans).length > 0;
+	const ans = parseHistoricoRespostas(t);
+	const has = Object.keys(ans).length > 0;
 
-  // Se não conseguimos parsear pelo padrão "1) ...", cai para um bloco preformatado
-  if (!has) return `<pre class="pre">${escapeHTML(t)}</pre>`;
+	// Se não conseguimos parsear pelo padrão "1) ...", cai para um bloco preformatado
+	if (!has) return `<pre class="pre">${escapeHTML(t)}</pre>`;
 
-  const item = (n) => `
+	const item = (n) => `
     <li>
       <div class="qa__q">${escapeHTML(HISTORICO_PERGUNTAS[n] || ("Pergunta " + n))}</div>
       <div class="qa__a">${escapeHTML(ans[n] || "—")}</div>
     </li>
   `;
 
-  return `
+	return `
     <div class="hf">
       <div class="muted" style="margin-top:2px;">HISTÓRICO FAMILIAR (FAMÍLIA)</div>
       <ol class="qa" start="1">
@@ -152,253 +149,271 @@ function historicoTextoParaHtml(textoHistorico) {
 
 
 function goPanelByRole(role) {
-  const r = normalizeRole(role);
-  window.location.href = r === "PACIENTE" ? "paciente.html" : "medico.html";
+	const r = normalizeRole(role);
+	window.location.href = r === "PACIENTE" ? "paciente.html" : "medico.html";
 }
 
 function qs(name) {
-  const url = new URL(window.location.href);
-  return url.searchParams.get(name);
+	const url = new URL(window.location.href);
+	return url.searchParams.get(name);
 }
 
 function isRedirectStatus(code) {
-  return [301, 302, 303, 307, 308].includes(Number(code));
+	return [301, 302, 303, 307, 308].includes(Number(code));
 }
 
 function extractServerMessage(err) {
-  if (!err) return "";
+	if (!err) return "";
 
-  if (typeof err?.data === "string") {
-    const s = err.data.trim();
-    if (s) return s;
-  }
+	if (typeof err?.data === "string") {
+		const s = err.data.trim();
+		if (s) return s;
+	}
 
-  if (err?.data && typeof err.data === "object" && typeof err.data.message === "string") {
-    const s = err.data.message.trim();
-    if (s) return s;
-  }
+	if (err?.data && typeof err.data === "object" && typeof err.data.message === "string") {
+		const s = err.data.message.trim();
+		if (s) return s;
+	}
 
-  const raw = String(err?.message || "");
-  const m = raw.match(/^HTTP\s+\d+\s*:\s*(.*)$/i);
-  const s = (m ? m[1] : raw).trim();
+	const raw = String(err?.message || "");
+	const m = raw.match(/^HTTP\s+\d+\s*:\s*(.*)$/i);
+	const s = (m ? m[1] : raw).trim();
 
-  if (!s) return "";
-  if (["erro", "error"].includes(s.toLowerCase())) return "";
-  return s;
+	if (!s) return "";
+	if (["erro", "error"].includes(s.toLowerCase())) return "";
+	return s;
 }
 
 function inferFriendlyError(err) {
-  const status = err?.status;
-  const serverMsg = extractServerMessage(err);
+	const status = err?.status;
+	const serverMsg = extractServerMessage(err);
 
-  if (serverMsg) return serverMsg;
+	if (serverMsg) return serverMsg;
 
-  const msg = String(err?.message || err || "");
+	const msg = String(err?.message || err || "");
 
-  if (status === 401 || msg.includes("HTTP 401")) return "Sessão inválida/expirada. Faça login novamente.";
-  if (status === 403 || msg.includes("HTTP 403")) return "Acesso negado. Verifique o perfil/autorizações.";
-  if (status === 404 || msg.includes("HTTP 404")) return "Recurso não encontrado (404).";
-  if (status === 303 || msg.includes("HTTP 303")) return "Servidor retornou redirecionamento (303).";
+	if (status === 401 || msg.includes("HTTP 401")) return "Sessão inválida/expirada. Faça login novamente.";
+	if (status === 403 || msg.includes("HTTP 403")) return "Acesso negado. Verifique o perfil/autorizações.";
+	if (status === 404 || msg.includes("HTTP 404")) return "Recurso não encontrado (404).";
+	if (status === 303 || msg.includes("HTTP 303")) return "Servidor retornou redirecionamento (303).";
 
-  return msg || "Erro inesperado.";
+	return msg || "Erro inesperado.";
 }
 
 
 function handleAuthFailure(err) {
-  const status = err?.status;
-  const msg = String(err?.message || "");
+	const status = err?.status;
+	const msg = String(err?.message || "");
 
-  if (status === 401 || status === 403 || msg.includes("HTTP 401") || msg.includes("HTTP 403")) {
-    clearAuth();
-    toast(inferFriendlyError(err));
-    setTimeout(() => (window.location.href = "index.html"), 250);
-    return true;
-  }
-  return false;
+	if (status === 401 || status === 403 || msg.includes("HTTP 401") || msg.includes("HTTP 403")) {
+		clearAuth();
+		toast(inferFriendlyError(err));
+		setTimeout(() => (window.location.href = "index.html"), 250);
+		return true;
+	}
+	return false;
 }
 
 
 /* ---------------- Fetch com JWT + redirect ---------------- */
 async function apiFetch(path, options = {}) {
-  const headers = options.headers || {};
   const token = getToken();
-  const isForm = options.body instanceof FormData;
 
-  if (!isForm) headers["Content-Type"] = headers["Content-Type"] || "application/json";
+  const headers = new Headers(options.headers || {});
+  headers.set("Accept", "application/json");
 
-  // ✅ NÃO envia Bearer em /auth/* (evita token velho quebrar login/register)
-  const isAuthRoute = String(path || "").startsWith("/auth/");
-  if (token && !isAuthRoute) headers["Authorization"] = `Bearer ${token}`;
-
-  const req = { redirect: "follow", ...options, headers };
-  let res = await fetch(API + path, req);
-
-  // segue redirects (ex.: 303)
-  if (isRedirectStatus(res.status)) {
-    const loc = res.headers.get("location");
-    if (loc) {
-      const followUrl = loc.startsWith("http")
-        ? loc
-        : (loc.startsWith("/") ? (API + loc) : (API + "/" + loc));
-
-      res = await fetch(followUrl, { method: "GET", headers, redirect: "follow" });
-    }
+  const isFormData = (typeof FormData !== "undefined") && (options.body instanceof FormData);
+  if (options.body && !isFormData && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
 
-  const ct = res.headers.get("content-type") || "";
-  let data;
-  try {
-    data = ct.includes("application/json") ? await res.json() : await res.text();
-  } catch {
-    data = await res.text().catch(() => "");
+  const isAuthRoute = path.startsWith("/auth/");
+  if (!isAuthRoute && token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
+
+  const res = await fetch(path, { ...options, headers });
+
+  if (res.status === 401 || res.status === 403) {
+    const msg = await res.text().catch(() => "");
+    const err = new Error(msg || (res.status === 401 ? "Não autenticado." : "Acesso negado."));
+    err.status = res.status;
+    throw err;
+  }
+
+  if (res.status === 204) return null;
+
+  const txt = await res.text();
+  let data = null;
+  try { data = txt ? JSON.parse(txt) : null; } catch { data = txt; }
 
   if (!res.ok) {
-    const msg = (typeof data === "string" ? data : (data.message || JSON.stringify(data)));
-
-    // ✅ se for 401/403, limpa sessão
-    if (res.status === 401 || res.status === 403) clearAuth();
-
-    const e = new Error(`HTTP ${res.status}: ${msg || "Erro"}`);
-    e.status = res.status;
-    e.data = data;
-    throw e;
+    const err = new Error((data && (data.message || data.error)) ? (data.message || data.error) : `Erro (${res.status}).`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
   }
 
   return data;
 }
-
 
 /* ---------------- Auth API ---------------- */
 async function loginUser(email, senha) {
-  const safeEmail = (email || "").trim().toLowerCase();
-  const data = await apiFetch("/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ email: safeEmail, senha }),
-  });
-  setToken(data.token);
-  setUserMeta(data.userId, data.role);
-  return data;
+	const safeEmail = (email || "").trim().toLowerCase();
+	const data = await apiFetch("/auth/login", {
+		method: "POST",
+		body: JSON.stringify({ email: safeEmail, senha }),
+	});
+	setToken(data.token);
+	setUserMeta(data.userId, data.role);
+	return data;
+}
+
+function setUserMeta(userId, role) {
+  localStorage.setItem(STORAGE.userId, String(userId ?? ""));
+  localStorage.setItem(STORAGE.role, normalizeRole(role));
 }
 
 async function registerUser(payload) {
-  const p = { ...(payload || {}) };
-  if (p.email) p.email = String(p.email).trim().toLowerCase();
-  return apiFetch("/auth/register", {
-    method: "POST",
-    body: JSON.stringify(p),
-  });
+	const p = { ...(payload || {}) };
+	if (p.email) p.email = String(p.email).trim().toLowerCase();
+	return apiFetch("/auth/register", {
+		method: "POST",
+		body: JSON.stringify(p),
+	});
 }
 
 async function createPacienteProfile(payload) {
-  return apiFetch("/profiles/paciente", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+	return apiFetch("/profiles/paciente", {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
 }
 
 async function createMedicoProfile(payload) {
-  return apiFetch("/profiles/medico", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+	return apiFetch("/profiles/medico", {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
 }
 
 /* ---------------- Paciente API ---------------- */
 async function fetchMePaciente() {
-  return apiFetch("/pacientes/me", { method: "GET" });
+	return apiFetch("/pacientes/me", { method: "GET" });
 }
 async function updateMePaciente(payload) {
-  return apiFetch("/pacientes/me", { method: "PUT", body: JSON.stringify(payload) });
+	return apiFetch("/pacientes/me", { method: "PUT", body: JSON.stringify(payload) });
 }
 
 /* ---------------- Médico API ---------------- */
 async function fetchPacientes() {
-  return apiFetch("/pacientes", { method: "GET" });
+	return apiFetch("/pacientes", { method: "GET" });
 }
 async function fetchPacienteById(id) {
-  return apiFetch(`/pacientes/${id}`, { method: "GET" });
+	return apiFetch(`/pacientes/${id}`, { method: "GET" });
 }
 
 /* ---------------- Histórico Familiar (snapshot) ---------------- */
 async function fetchHistoricosByPacienteId(idPaciente) {
-  return apiFetch(`/historico-familiar/paciente/${idPaciente}`, { method: "GET" });
+	return apiFetch(`/historico-familiar/paciente/${idPaciente}`, { method: "GET" });
 }
 
 async function createHistoricoSnapshot({ pacienteId, textoHistorico }) {
-  return apiFetch("/historico-familiar/snapshots", {
-    method: "POST",
-    body: JSON.stringify({ pacienteId, textoHistorico }),
-  });
+	return apiFetch("/historico-familiar/snapshots", {
+		method: "POST",
+		body: JSON.stringify({ pacienteId, textoHistorico }),
+	});
 }
 
 async function downloadHistoricoAnexo(anexoId, nomeOriginal) {
-  const token = getToken();
-  if (!token) throw new Error("Faça login para baixar anexos.");
+	const token = getToken();
+	if (!token) throw new Error("Faça login para baixar anexos.");
 
-  const res = await fetch(API + `/historico-familiar/anexos/${anexoId}`, {
-    headers: { "Authorization": `Bearer ${token}` },
-    redirect: "follow"
-  });
+	const res = await fetch(API + `/historico-familiar/anexos/${anexoId}`, {
+		headers: { "Authorization": `Bearer ${token}` },
+		redirect: "follow"
+	});
 
-  if (!res.ok) {
-    const msg = await res.text().catch(() => "");
-    throw new Error(msg || `Erro ${res.status}`);
-  }
+	if (!res.ok) {
+		const msg = await res.text().catch(() => "");
+		throw new Error(msg || `Erro ${res.status}`);
+	}
 
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = nomeOriginal || `anexo-${anexoId}`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+	const blob = await res.blob();
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement("a");
+	a.href = url;
+	a.download = nomeOriginal || `anexo-${anexoId}`;
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /* ---------------- Exames (upload separado) ---------------- */
 async function fetchExamesByPacienteId(idPaciente) {
-  return apiFetch(`/exames/paciente/${idPaciente}`, { method: "GET" });
+	return apiFetch(`/exames/paciente/${idPaciente}`, { method: "GET" });
+}
+
+async function startChat(pacienteId) {
+  return apiFetch("/chats/start", {
+    method: "POST",
+    body: JSON.stringify({ pacienteId })
+  });
+}
+
+async function fetchChats() {
+  return apiFetch("/chats");
+}
+
+async function fetchChatMessages(chatId) {
+  return apiFetch(`/chats/${chatId}/messages`);
+}
+
+async function sendChatMessage(chatId, texto) {
+  return apiFetch(`/chats/${chatId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ texto })
+  });
 }
 
 async function uploadExame({ pacienteId, descricao, file }) {
-  const fd = new FormData();
-  fd.append("pacienteId", String(pacienteId));
-  fd.append("descricao", String(descricao || ""));
-  fd.append("arquivo", file);
-  return apiFetch("/exames", { method: "POST", body: fd });
+	const fd = new FormData();
+	fd.append("pacienteId", String(pacienteId));
+	fd.append("descricao", String(descricao || ""));
+	fd.append("arquivo", file);
+	return apiFetch("/exames", { method: "POST", body: fd });
 }
 
 async function downloadExame(exameId, nomeOriginal) {
-  const token = getToken();
-  if (!token) throw new Error("Faça login para baixar anexos.");
+	const token = getToken();
+	if (!token) throw new Error("Faça login para baixar anexos.");
 
-  const res = await fetch(API + `/exames/${exameId}`, {
-    headers: { "Authorization": `Bearer ${token}` },
-    redirect: "follow"
-  });
+	const res = await fetch(API + `/exames/${exameId}`, {
+		headers: { "Authorization": `Bearer ${token}` },
+		redirect: "follow"
+	});
 
-  if (!res.ok) {
-    const msg = await res.text().catch(() => "");
-    throw new Error(msg || `Erro ${res.status}`);
-  }
+	if (!res.ok) {
+		const msg = await res.text().catch(() => "");
+		throw new Error(msg || `Erro ${res.status}`);
+	}
 
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = nomeOriginal || `exame-${exameId}`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+	const blob = await res.blob();
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement("a");
+	a.href = url;
+	a.download = nomeOriginal || `exame-${exameId}`;
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 
 /* ---------------- Layout ---------------- */
 function logoSVG() {
-  return `
+	return `
     <svg class="brand__logo" viewBox="0 0 220 140" aria-hidden="true">
       <circle cx="110" cy="36" r="16" fill="none" stroke="var(--pink)" stroke-width="3"/>
       <path d="M60 115V78c0-10 8-18 18-18h64c10 0 18 8 18 18v37"
@@ -412,18 +427,20 @@ function logoSVG() {
 }
 
 function buildLayout(page) {
-  const meta = getUserMeta();
-  const logged = !!meta.token;
-  const role = normalizeRole(meta.role || "");
-  const painelHref = logged ? (role === "PACIENTE" ? "paciente.html" : "medico.html") : "#";
+	const meta = getUserMeta();
+	const logged = !!meta.token;
+	const role = normalizeRole(meta.role || "");
+	const painelHref = logged ? (role === "PACIENTE" ? "paciente.html" : "medico.html") : "#";
 
- 
-  const showHistoricoMenu = logged && role === "PACIENTE";
-  const showExamesMenu = logged && role === "PACIENTE";
 
-  const perfilLabel = role === "PACIENTE" ? "Paciente" : (role === "MEDICO" ? "Médico(a)" : "");
+	const showHistoricoMenu = logged && role === "PACIENTE";
+	const showExamesMenu = logged && role === "PACIENTE";
+	const showChatMenu = logged && role === "PACIENTE";
 
-  return `
+
+	const perfilLabel = role === "PACIENTE" ? "Paciente" : (role === "MEDICO" ? "Médico(a)" : "");
+
+	return `
     <header class="header">
       <div class="container header__inner">
         <a class="brand" href="index.html">
@@ -440,6 +457,8 @@ function buildLayout(page) {
 
 		  <a class="nav__link" id="navHistorico" href="HistoricoFamiliar.html" ${showHistoricoMenu ? "" : "hidden"}>Histórico Familiar</a>
 		  <a class="nav__link" id="navExames" href="Exames.html" ${showExamesMenu ? "" : "hidden"}>Exames</a>
+		  <a class="nav__link" id="navChat" href="Chat.html" ${showChatMenu ? "" : "hidden"}>Chat</a>
+
           <a class="nav__link" id="navPainel" href="${painelHref}" ${logged ? "" : "hidden"}>Painel</a>
 
           <span class="badge" id="navPerfil" ${logged ? "" : "hidden"}>Área de <strong>${escapeHTML(perfilLabel)}</strong></span>
@@ -488,39 +507,39 @@ function buildLayout(page) {
 }
 
 function bindCommon() {
-  $("#btnLogin")?.addEventListener("click", () => openModal("#modalLogin"));
-  $("#btnCloseLogin")?.addEventListener("click", () => closeModal("#modalLogin"));
-  $("#modalLogin")?.addEventListener("click", (e) => {
-    if (e.target?.dataset?.close === "true") closeModal("#modalLogin");
-  });
+	$("#btnLogin")?.addEventListener("click", () => openModal("#modalLogin"));
+	$("#btnCloseLogin")?.addEventListener("click", () => closeModal("#modalLogin"));
+	$("#modalLogin")?.addEventListener("click", (e) => {
+		if (e.target?.dataset?.close === "true") closeModal("#modalLogin");
+	});
 
-  $("#btnLogout")?.addEventListener("click", () => {
-    clearAuth();
-    toast("Você saiu.");
-    setTimeout(() => (window.location.href = "index.html"), 200);
-  });
+	$("#btnLogout")?.addEventListener("click", () => {
+		clearAuth();
+		toast("Você saiu.");
+		setTimeout(() => (window.location.href = "index.html"), 200);
+	});
 
-  $("#formLogin")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const email = ($("#loginEmail")?.value || "").trim().toLowerCase();
-    const senha = $("#loginSenha")?.value || "";
+	$("#formLogin")?.addEventListener("submit", async (e) => {
+		e.preventDefault();
+		const email = ($("#loginEmail")?.value || "").trim().toLowerCase();
+		const senha = $("#loginSenha")?.value || "";
 
-    try {
-      const data = await loginUser(email, senha);
-      closeModal("#modalLogin");
-      toast("Login efetuado!");
-      setTimeout(() => goPanelByRole(data.role), 150);
-    } catch (err) {
-      toast(inferFriendlyError(err));
-    }
-  });
+		try {
+			const data = await loginUser(email, senha);
+			closeModal("#modalLogin");
+			toast("Login efetuado!");
+			setTimeout(() => goPanelByRole(data.role), 150);
+		} catch (err) {
+			toast(inferFriendlyError(err));
+		}
+	});
 }
 
 /* ---------------- Pages ---------------- */
 function renderHome() {
-  const root = $("#pageRoot");
+	const root = $("#pageRoot");
 
-  root.innerHTML = `
+	root.innerHTML = `
   <section class="hero">
       <div class="hero__top hero__top--center">
         <div>
@@ -558,20 +577,20 @@ function renderHome() {
     </section>
   `;
 
-  let idx = 0;
-  const paint = () => {
-    $("#bannerTitle").textContent = BANNERS[idx].title;
-    $("#bannerText").textContent = BANNERS[idx].text;
-  };
-  paint();
-  $("#btnBannerPrev").onclick = () => { idx = (idx - 1 + BANNERS.length) % BANNERS.length; paint(); };
-  $("#btnBannerNext").onclick = () => { idx = (idx + 1) % BANNERS.length; paint(); };
+	let idx = 0;
+	const paint = () => {
+		$("#bannerTitle").textContent = BANNERS[idx].title;
+		$("#bannerText").textContent = BANNERS[idx].text;
+	};
+	paint();
+	$("#btnBannerPrev").onclick = () => { idx = (idx - 1 + BANNERS.length) % BANNERS.length; paint(); };
+	$("#btnBannerNext").onclick = () => { idx = (idx + 1) % BANNERS.length; paint(); };
 }
 
 /* -------- Cadastro (simples) -------- */
 function renderCadastro() {
-  const root = $("#pageRoot");
-  root.innerHTML = `
+	const root = $("#pageRoot");
+	root.innerHTML = `
     <div class="page-center">
       <div class="card">
         <div class="card__header">
@@ -668,124 +687,124 @@ function renderCadastro() {
     </div>
   `;
 
-  const cadTipo = $("#cadTipo");
-  const camposPaciente = $("#camposPaciente");
-  const camposMedico = $("#camposMedico");
+	const cadTipo = $("#cadTipo");
+	const camposPaciente = $("#camposPaciente");
+	const camposMedico = $("#camposMedico");
 
-  // ✅ Corrige "required escondido" travando submit:
-  function setGroupActive(groupEl, active) {
-    groupEl.hidden = !active;
-    $$("input, select, textarea", groupEl).forEach(el => {
-      el.disabled = !active;
-    });
-  }
+	// ✅ Corrige "required escondido" travando submit:
+	function setGroupActive(groupEl, active) {
+		groupEl.hidden = !active;
+		$$("input, select, textarea", groupEl).forEach(el => {
+			el.disabled = !active;
+		});
+	}
 
-  function applyTipo(t) {
-    const isPaciente = t === "PACIENTE";
-    const isMedico = t === "MEDICO";
+	function applyTipo(t) {
+		const isPaciente = t === "PACIENTE";
+		const isMedico = t === "MEDICO";
 
-    setGroupActive(camposPaciente, isPaciente);
-    setGroupActive(camposMedico, isMedico);
+		setGroupActive(camposPaciente, isPaciente);
+		setGroupActive(camposMedico, isMedico);
 
-    $("#pNome").required = isPaciente;
+		$("#pNome").required = isPaciente;
 
-    $("#mNome").required = isMedico;
-    $("#mCrm").required = isMedico;
-    $("#mEsp").required = isMedico;
-  }
+		$("#mNome").required = isMedico;
+		$("#mCrm").required = isMedico;
+		$("#mEsp").required = isMedico;
+	}
 
-  cadTipo.addEventListener("change", () => applyTipo(cadTipo.value));
-  applyTipo(cadTipo.value); // estado inicial
+	cadTipo.addEventListener("change", () => applyTipo(cadTipo.value));
+	applyTipo(cadTipo.value); // estado inicial
 
-  $("#cadIrLogin").addEventListener("click", (e) => {
-    e.preventDefault();
-    openModal("#modalLogin");
-  });
+	$("#cadIrLogin").addEventListener("click", (e) => {
+		e.preventDefault();
+		openModal("#modalLogin");
+	});
 
-  $("#formCadastro").addEventListener("submit", async (e) => {
-    e.preventDefault();
+	$("#formCadastro").addEventListener("submit", async (e) => {
+		e.preventDefault();
 
-    const role = normalizeRole($("#cadTipo").value);
-    const telefone = $("#cadTelefone").value.trim();
-    const email = $("#cadEmail").value.trim().toLowerCase();
-    const senha = $("#cadSenha").value;
+		const role = normalizeRole($("#cadTipo").value);
+		const telefone = $("#cadTelefone").value.trim();
+		const email = $("#cadEmail").value.trim().toLowerCase();
+		const senha = $("#cadSenha").value;
 
-    if (!role) return toast("Selecione o tipo de usuário.");
-    if (!telefone) return toast("Telefone é obrigatório.");
+		if (!role) return toast("Selecione o tipo de usuário.");
+		if (!telefone) return toast("Telefone é obrigatório.");
 
-    try {
-      // registra
-	  const regPayload = { email, senha, telefone, role };
+		try {
+			// registra
+			const regPayload = { email, senha, telefone, role };
 
-	  if (role === "PACIENTE") {
-	    regPayload.nome = $("#pNome").value.trim();
-	    regPayload.dataNascimento = $("#pNasc").value || null;
-	    regPayload.observacoes = $("#pObs").value.trim();
-	    regPayload.genero = normalizeGeneroChar($("#pGenero").value);
-	  }
+			if (role === "PACIENTE") {
+				regPayload.nome = $("#pNome").value.trim();
+				regPayload.dataNascimento = $("#pNasc").value || null;
+				regPayload.observacoes = $("#pObs").value.trim();
+				regPayload.genero = normalizeGeneroChar($("#pGenero").value);
+			}
 
-	  if (role === "MEDICO") {
-	    regPayload.nome = $("#mNome").value.trim();
-	    regPayload.crm = $("#mCrm").value.trim();
-	    regPayload.especialidade = $("#mEsp").value.trim();
-	  }
+			if (role === "MEDICO") {
+				regPayload.nome = $("#mNome").value.trim();
+				regPayload.crm = $("#mCrm").value.trim();
+				regPayload.especialidade = $("#mEsp").value.trim();
+			}
 
-	  await registerUser(regPayload);
+			await registerUser(regPayload);
 
-      // loga automaticamente (requisito #1)
-      const auth = await loginUser(email, senha);
-      const r = normalizeRole(auth.role);
+			// loga automaticamente (requisito #1)
+			const auth = await loginUser(email, senha);
+			const r = normalizeRole(auth.role);
 
-      // cria perfil
-      if (r === "PACIENTE") {
-        const nome = $("#pNome").value.trim();
-        if (!nome) return toast("Nome é obrigatório.");
+			// cria perfil
+			if (r === "PACIENTE") {
+				const nome = $("#pNome").value.trim();
+				if (!nome) return toast("Nome é obrigatório.");
 
-        await createPacienteProfile({
-          nome,
-          dataNascimento: $("#pNasc").value || null,
-          historicoFamiliar: "",
-          observacoes: $("#pObs").value.trim(),
-          genero: normalizeGeneroChar($("#pGenero").value),
-        });
-      }
+				await createPacienteProfile({
+					nome,
+					dataNascimento: $("#pNasc").value || null,
+					historicoFamiliar: "",
+					observacoes: $("#pObs").value.trim(),
+					genero: normalizeGeneroChar($("#pGenero").value),
+				});
+			}
 
-      if (r === "MEDICO") {
-        const nome = $("#mNome").value.trim();
-        const crm = $("#mCrm").value.trim();
-        const especialidade = $("#mEsp").value.trim();
+			if (r === "MEDICO") {
+				const nome = $("#mNome").value.trim();
+				const crm = $("#mCrm").value.trim();
+				const especialidade = $("#mEsp").value.trim();
 
-        if (!nome) return toast("Nome do médico é obrigatório.");
-        if (!crm) return toast("CRM é obrigatório.");
-        if (!especialidade) return toast("Especialidade é obrigatória.");
+				if (!nome) return toast("Nome do médico é obrigatório.");
+				if (!crm) return toast("CRM é obrigatório.");
+				if (!especialidade) return toast("Especialidade é obrigatória.");
 
-        await createMedicoProfile({ nome, crm, especialidade });
-      }
+				await createMedicoProfile({ nome, crm, especialidade });
+			}
 
-      toast("Conta criada! Indo para o painel...");
-      setTimeout(() => goPanelByRole(r), 250);
+			toast("Conta criada! Indo para o painel...");
+			setTimeout(() => goPanelByRole(r), 250);
 
-    } catch (err) {
-      toast(inferFriendlyError(err));
-    }
-  });
+		} catch (err) {
+			toast(inferFriendlyError(err));
+		}
+	});
 }
 
 /* -------- Paciente (dados pessoais sempre) -------- */
 function renderPaciente() {
-  const meta = getUserMeta();
-  const role = normalizeRole(meta.role || "");
-  if (!meta.token) {
-    toast("Faça login para acessar.");
-    return setTimeout(() => window.location.href = "index.html", 250);
-  }
-  if (role !== "PACIENTE") {
-    toast("Acesso restrito.");
-    return setTimeout(() => window.location.href = "index.html", 250);
-  }
+	const meta = getUserMeta();
+	const role = normalizeRole(meta.role || "");
+	if (!meta.token) {
+		toast("Faça login para acessar.");
+		return setTimeout(() => window.location.href = "index.html", 250);
+	}
+	if (role !== "PACIENTE") {
+		toast("Acesso restrito.");
+		return setTimeout(() => window.location.href = "index.html", 250);
+	}
 
-  const root = $("#pageRoot");
-  root.innerHTML = `
+	const root = $("#pageRoot");
+	root.innerHTML = `
     <div class="card card--flat">
       <div class="card__header">
         <h2 class="card__title">Área do Paciente</h2>
@@ -798,21 +817,21 @@ function renderPaciente() {
     </div>
   `;
 
-  async function loadMe() {
-    try {
-      const me = await fetchMePaciente();
-      renderPerfilForm(me);
-    } catch (err) {
-      $("#pLoading").textContent = inferFriendlyError(err);
-    }
-  }
+	async function loadMe() {
+		try {
+			const me = await fetchMePaciente();
+			renderPerfilForm(me);
+		} catch (err) {
+			$("#pLoading").textContent = inferFriendlyError(err);
+		}
+	}
 
-  function renderPerfilForm(me) {
-    $("#pLoading").hidden = true;
-    const box = $("#pContent");
-    box.hidden = false;
+	function renderPerfilForm(me) {
+		$("#pLoading").hidden = true;
+		const box = $("#pContent");
+		box.hidden = false;
 
-    box.innerHTML = `
+		box.innerHTML = `
       <form id="formPaciente" class="form">
         <div class="row">
           <div class="field" style="flex:1;">
@@ -850,104 +869,240 @@ function renderPaciente() {
       </form>
     `;
 
-    $("#formPaciente").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      try {
-        const data = {
-          nome: $("#pNome").value.trim(),
-          dataNascimento: $("#pNasc").value || null,
-          genero: normalizeGeneroChar($("#pGenero").value),
-          observacoes: $("#pObs").value.trim(),
-        };
+		$("#formPaciente").addEventListener("submit", async (e) => {
+			e.preventDefault();
+			try {
+				const data = {
+					nome: $("#pNome").value.trim(),
+					dataNascimento: $("#pNasc").value || null,
+					genero: normalizeGeneroChar($("#pGenero").value),
+					observacoes: $("#pObs").value.trim(),
+				};
 
-        await updateMePaciente(data);
-        toast("Dados salvos!");
-      } catch (err) {
-        toast(inferFriendlyError(err));
-      }
-    });
-  }
+				await updateMePaciente(data);
+				toast("Dados salvos!");
+			} catch (err) {
+				toast(inferFriendlyError(err));
+			}
+		});
+	}
 
-  loadMe();
+	loadMe();
 }
+
+function renderChatHub() {
+	  const meta = getUserMeta();
+	  const role = normalizeRole(meta.role || "");
+	  if (!meta.token) return (toast("Faça login."), setTimeout(() => location.href = "index.html", 250));
+
+	  const root = $("#pageRoot");
+	  root.innerHTML = `
+	    <div class="page-center">
+	      <div class="card">
+	        <div class="card__header">
+	          <h2 class="card__title">Chat</h2>
+	          <p class="card__subtitle">Conversas (estilo WhatsApp).</p>
+	        </div>
+
+	        <div class="card__body">
+	          <div class="chat-wrap">
+	            <div class="chat-list" id="chatList">
+	              <div class="muted">Carregando chats...</div>
+	            </div>
+
+	            <div class="chat-thread">
+	              <div class="chat-messages" id="chatMsgs">
+	                <div class="muted">Selecione uma conversa.</div>
+	              </div>
+
+	              <form class="chat-input" id="chatForm">
+	                <input id="chatText" placeholder="Digite sua mensagem..." required />
+	                <button class="btn" type="submit">Enviar</button>
+	              </form>
+	            </div>
+	          </div>
+	        </div>
+	      </div>
+	    </div>
+	  `;
+
+	  let currentChatId = null;
+	  let pollTimer = null;
+
+	  function stopPoll() {
+	    if (pollTimer) clearInterval(pollTimer);
+	    pollTimer = null;
+	  }
+
+	  async function loadMessages(chatId) {
+	    const box = $("#chatMsgs");
+	    const msgs = await fetchChatMessages(chatId);
+
+	    const meSender = role === "PACIENTE" ? "PACIENTE" : "MEDICO";
+
+	    box.innerHTML = (msgs || []).map(m => {
+	      const mine = m.sender === meSender;
+	      return `
+	        <div class="bubble ${mine ? "bubble--me" : "bubble--other"}">
+	          <div class="bubble__text">${escapeHTML(m.texto || "")}</div>
+	          <div class="bubble__meta">${escapeHTML(m.enviadoEm ? new Date(m.enviadoEm).toLocaleString() : "")}</div>
+	        </div>
+	      `;
+	    }).join("") || `<div class="muted">Nenhuma mensagem.</div>`;
+
+	    box.scrollTop = box.scrollHeight;
+	  }
+
+	  async function selectChat(chatId) {
+	    currentChatId = chatId;
+	    await loadMessages(chatId);
+
+	    stopPoll();
+	    pollTimer = setInterval(() => {
+	      if (currentChatId) loadMessages(currentChatId).catch(() => {});
+	    }, 3000);
+	  }
+
+	  async function loadChats() {
+	    const listBox = $("#chatList");
+	    try {
+	      const chats = await fetchChats();
+
+	      if (!Array.isArray(chats) || chats.length === 0) {
+	        listBox.innerHTML = `<div class="muted">Nenhuma conversa ainda.</div>`;
+	        return;
+	      }
+
+	      listBox.innerHTML = chats.map(c => {
+	        const title =
+	          role === "PACIENTE"
+	            ? (c.medicoLabel || "Médico(a)")
+	            : (c.pacienteNome || "Paciente");
+
+	        const sub = c.criadoEm ? new Date(c.criadoEm).toLocaleString() : "";
+
+	        return `
+	          <button class="chat-item" type="button" data-chat-id="${c.chatId}">
+	            <div class="chat-item__title">${escapeHTML(title)}</div>
+	            <div class="chat-item__meta">${escapeHTML(sub)}</div>
+	          </button>
+	        `;
+	      }).join("");
+
+	      $$(".chat-item", listBox).forEach(btn => {
+	        btn.addEventListener("click", async () => {
+	          $$(".chat-item", listBox).forEach(x => x.classList.remove("chat-item--active"));
+	          btn.classList.add("chat-item--active");
+	          await selectChat(Number(btn.dataset.chatId));
+	        });
+	      });
+		  
+		  const qChatId = Number(new URLSearchParams(location.search).get("chatId") || 0);
+		  const firstId = qChatId || Number(chats[0].chatId);
+
+
+	      // auto-abrir o primeiro chat
+	      //const firstId = Number(chats[0].chatId);
+	      const firstBtn = listBox.querySelector(`[data-chat-id="${firstId}"]`);
+	      if (firstBtn) firstBtn.classList.add("chat-item--active");
+	      await selectChat(firstId);
+
+	    } catch (err) {
+	      listBox.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+	    }
+	  }
+
+	  $("#chatForm").addEventListener("submit", async (e) => {
+	    e.preventDefault();
+	    if (!currentChatId) return toast("Selecione uma conversa.");
+
+	    const input = $("#chatText");
+	    const txt = input.value.trim();
+	    if (!txt) return;
+
+	    try {
+	      await sendChatMessage(currentChatId, txt);
+	      input.value = "";
+	      await loadMessages(currentChatId);
+	    } catch (err) {
+	      toast(inferFriendlyError(err));
+	    }
+	  });
+
+	  // carregar tudo
+	  loadChats();
+
+	  // quando sair da página, parar polling (opcional)
+	  window.addEventListener("beforeunload", stopPoll);
+	}
 
 
 //* -------- Médico (lista + detalhes + histórico + exames dentro de detalhes) -------- */
 function renderMedico() {
-  const meta = getUserMeta();
-  const role = normalizeRole(meta.role || "");
-  if (!meta.token) {
-    toast("Faça login para acessar.");
-    return setTimeout(() => window.location.href = "index.html", 250);
-  }
-  if (role !== "MEDICO") {
-    toast("Acesso restrito.");
-    return setTimeout(() => window.location.href = "index.html", 250);
-  }
+	const meta = getUserMeta();
+	const role = normalizeRole(meta.role || "");
+	if (!meta.token) {
+		toast("Faça login para acessar.");
+		return setTimeout(() => window.location.href = "index.html", 250);
+	}
+	if (role !== "MEDICO") {
+		toast("Acesso restrito.");
+		return setTimeout(() => window.location.href = "index.html", 250);
+	}
 
-  const root = $("#pageRoot");
-  root.innerHTML = `
-    <div class="page-center">
-      <div class="card">
-        <div class="card__header">
-          <h2 class="card__title">Pacientes cadastrados</h2>
-          <p class="card__subtitle">Busque e abra um paciente para ver detalhes, histórico familiar e exames.</p>
-        </div>
-        <div class="card__body">
-          <div class="row">
-            <div class="field" style="flex:1;">
-              <label>Buscar</label>
-              <input id="mBusca" placeholder="nome..." />
-            </div>
-            <div class="field" style="width:220px;">
-              <label>&nbsp;</label>
-              <button class="btn btn--ghost" id="btnReloadPacientes" type="button">Recarregar</button>
-            </div>
-          </div>
-          <div class="hr"></div>
-          <div id="mLista" class="list">
-            <div class="muted">Carregando...</div>
-          </div>
-        </div>
-      </div>
+	const root = $("#pageRoot");
+	root.innerHTML = `
+	<div class="page-center">
+	    <div class="card">
+	      <div class="card__header">
+	        <h2 class="card__title">Pacientes cadastrados</h2>
+	        <p class="card__subtitle">Busque e abra um paciente para ver histórico familiar, exames e chat.</p>
+	      </div>
+	      <div class="card__body">
+	        <div class="row">
+	          <div class="field" style="flex:1;">
+	            <label>Buscar</label>
+	            <input id="mBusca" placeholder="nome..." />
+	          </div>
+	          <div class="field" style="width:220px;">
+	            <label>&nbsp;</label>
+	            <button class="btn btn--ghost" id="btnReloadPacientes" type="button">Recarregar</button>
+	          </div>
+	        </div>
+	        <div class="hr"></div>
+	        <div id="mLista" class="list">
+	          <div class="muted">Carregando...</div>
+	        </div>
+	      </div>
+	    </div>
+	  </div>
+	`;
 
-      <div class="card card--flat">
-        <div class="card__header">
-          <h2 class="card__title">Detalhes</h2>
-          <p class="card__subtitle" id="mSub">Selecione um paciente</p>
-        </div>
-        <div class="card__body" id="mDetalhes">
-          <div class="muted">Nenhum paciente selecionado.</div>
-        </div>
-      </div>
-    </div>
-  `;
+	const state = { pacientes: [], selectedPacienteId: null };
 
-  const state = { pacientes: [], selectedPacienteId: null };
+	async function loadPacientes() {
+		const list = $("#mLista");
+		list.innerHTML = `<div class="muted">Carregando...</div>`;
+		try {
+			const pacientes = await fetchPacientes();
+			state.pacientes = Array.isArray(pacientes) ? pacientes : [];
+			renderLista();
+		} catch (err) {
+			list.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+		}
+	}
 
-  async function loadPacientes() {
-    const list = $("#mLista");
-    list.innerHTML = `<div class="muted">Carregando...</div>`;
-    try {
-      const pacientes = await fetchPacientes();
-      state.pacientes = Array.isArray(pacientes) ? pacientes : [];
-      renderLista();
-    } catch (err) {
-      list.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-    }
-  }
+	function renderLista() {
+		const list = $("#mLista");
+		const q = ($("#mBusca").value || "").trim().toLowerCase();
 
-  function renderLista() {
-    const list = $("#mLista");
-    const q = ($("#mBusca").value || "").trim().toLowerCase();
+		const filtered = state.pacientes.filter(p => {
+			const nome = String(p.nome || "").toLowerCase();
+			return !q || nome.includes(q);
+		});
 
-    const filtered = state.pacientes.filter(p => {
-      const nome = String(p.nome || "").toLowerCase();
-      return !q || nome.includes(q);
-    });
-
-    list.innerHTML = filtered.length
-      ? filtered.map(p => `
+		list.innerHTML = filtered.length
+			? filtered.map(p => `
         <div class="item">
           <div class="item__top">
             <div>
@@ -959,7 +1114,7 @@ function renderMedico() {
           </div>
         </div>
       `).join("")
-      : `
+			: `
         <div class="muted">
           Nenhum paciente encontrado.
           <div style="margin-top:8px;">
@@ -969,26 +1124,25 @@ function renderMedico() {
         </div>
       `;
 
-    $$("[data-open]", list).forEach(btn => {
-      btn.addEventListener("click", () => {
-        const id = Number(btn.dataset.open);
-        if (!id) return;
-        state.selectedPacienteId = id;
-        renderDetalhes(id);
-      });
-    });
-  }
+		$$("[data-open]", list).forEach(btn => {
+			btn.addEventListener("click", () => {
+				const id = Number(btn.dataset.open);
+				if (!id) return;
+				window.location.href = `medico_paciente.html?pacienteId=${id}`;
+			});
+		});
+	}
 
-  // Helper para renderizar um card de histórico
-  function renderHistoricoItem(h) {
-    const versao = (h.versao != null) ? `v${h.versao}` : "—";
-    const criado = h.criadoEm ? new Date(h.criadoEm).toLocaleString() : "";
-    const textoHtml = historicoTextoParaHtml(h.textoHistorico);
-    const anexos = Array.isArray(h.anexos) ? h.anexos : [];
+	// Helper para renderizar um card de histórico
+	function renderHistoricoItem(h) {
+		const versao = (h.versao != null) ? `v${h.versao}` : "—";
+		const criado = h.criadoEm ? new Date(h.criadoEm).toLocaleString() : "";
+		const textoHtml = historicoTextoParaHtml(h.textoHistorico);
+		const anexos = Array.isArray(h.anexos) ? h.anexos : [];
 
-    const anexosHtml = anexos.length ? anexos.map(a => {
-      const nome = a.nomeOriginal || `anexo-${a.id}`;
-      return `
+		const anexosHtml = anexos.length ? anexos.map(a => {
+			const nome = a.nomeOriginal || `anexo-${a.id}`;
+			return `
         <div>
           <button class="btn btn--ghost" type="button"
                   data-dl-hf="${a.id}" data-name="${escapeAttr(nome)}">
@@ -996,9 +1150,9 @@ function renderMedico() {
           </button>
         </div>
       `;
-    }).join("") : "";
+		}).join("") : "";
 
-    return `
+		return `
       <div class="item">
         <div class="item__top">
           <div>
@@ -1012,97 +1166,97 @@ function renderMedico() {
         ${anexosHtml ? `<div class="hr"></div><div>${anexosHtml}</div>` : ""}
       </div>
     `;
-  }
+	}
 
-  function bindHistoricoDownloads(rootEl) {
-    if (!rootEl) return;
-    $$('[data-dl-hf]', rootEl).forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const anexoId = btn.dataset.dlHf;
-        const nome = btn.dataset.name || "arquivo";
-        try {
-          await downloadHistoricoAnexo(anexoId, nome);
-        } catch (err) {
-          toast(inferFriendlyError(err));
-        }
-      });
-    });
-  }
+	function bindHistoricoDownloads(rootEl) {
+		if (!rootEl) return;
+		$$('[data-dl-hf]', rootEl).forEach(btn => {
+			btn.addEventListener("click", async () => {
+				const anexoId = btn.dataset.dlHf;
+				const nome = btn.dataset.name || "arquivo";
+				try {
+					await downloadHistoricoAnexo(anexoId, nome);
+				} catch (err) {
+					toast(inferFriendlyError(err));
+				}
+			});
+		});
+	}
 
-  function renderHistoricoInDetails(pacienteId) {
-    const latestBox = $("#mHistoricoLatest");
-    const prevBox = $("#mHistoricoPrev");
-    const btnPrev = $("#btnMhfPrev");
+	function renderHistoricoInDetails(pacienteId) {
+		const latestBox = $("#mHistoricoLatest");
+		const prevBox = $("#mHistoricoPrev");
+		const btnPrev = $("#btnMhfPrev");
 
-    if (!latestBox) return;
+		if (!latestBox) return;
 
-    latestBox.innerHTML = `<div class="muted">Carregando histórico...</div>`;
-	if (prevBox) { prevBox.classList.add("vm-hidden"); prevBox.innerHTML = ""; }
-    if (btnPrev) { btnPrev.disabled = true; btnPrev.textContent = "Exibir histórico familiar anterior"; }
+		latestBox.innerHTML = `<div class="muted">Carregando histórico...</div>`;
+		if (prevBox) { prevBox.classList.add("vm-hidden"); prevBox.innerHTML = ""; }
+		if (btnPrev) { btnPrev.disabled = true; btnPrev.textContent = "Exibir histórico familiar anterior"; }
 
-    (async () => {
-      try {
-        const historicos = await fetchHistoricosByPacienteId(pacienteId);
+		(async () => {
+			try {
+				const historicos = await fetchHistoricosByPacienteId(pacienteId);
 
-        if (!Array.isArray(historicos) || historicos.length === 0) {
-          latestBox.innerHTML = `<div class="muted">Nenhum histórico familiar cadastrado.</div>`;
-          return;
-        }
+				if (!Array.isArray(historicos) || historicos.length === 0) {
+					latestBox.innerHTML = `<div class="muted">Nenhum histórico familiar cadastrado.</div>`;
+					return;
+				}
 
-        const latest = historicos[0];
-        const anteriores = historicos.slice(1);
+				const latest = historicos[0];
+				const anteriores = historicos.slice(1);
 
-        latestBox.innerHTML = renderHistoricoItem(latest);
-        bindHistoricoDownloads(latestBox);
+				latestBox.innerHTML = renderHistoricoItem(latest);
+				bindHistoricoDownloads(latestBox);
 
-        if (prevBox) {
-          prevBox.innerHTML = anteriores.length
-            ? anteriores.map(renderHistoricoItem).join("")
-            : `<div class="muted">Não há versões anteriores.</div>`;
-			prevBox.classList.add("vm-hidden");
-          bindHistoricoDownloads(prevBox);
-        }
+				if (prevBox) {
+					prevBox.innerHTML = anteriores.length
+						? anteriores.map(renderHistoricoItem).join("")
+						: `<div class="muted">Não há versões anteriores.</div>`;
+					prevBox.classList.add("vm-hidden");
+					bindHistoricoDownloads(prevBox);
+				}
 
-        if (btnPrev) {
-          btnPrev.disabled = anteriores.length === 0;
-          btnPrev.onclick = () => {
-            if (!prevBox) return;
-			const abrir = prevBox.classList.contains("vm-hidden");
-			prevBox.classList.toggle("vm-hidden", !abrir);
-			btnPrev.textContent = abrir
-			  ? "Ocultar histórico familiar anterior"
-			  : "Exibir histórico familiar anterior";
-          };
-        }
+				if (btnPrev) {
+					btnPrev.disabled = anteriores.length === 0;
+					btnPrev.onclick = () => {
+						if (!prevBox) return;
+						const abrir = prevBox.classList.contains("vm-hidden");
+						prevBox.classList.toggle("vm-hidden", !abrir);
+						btnPrev.textContent = abrir
+							? "Ocultar histórico familiar anterior"
+							: "Exibir histórico familiar anterior";
+					};
+				}
 
-      } catch (err) {
-        latestBox.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-      }
-    })();
-  }
+			} catch (err) {
+				latestBox.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+			}
+		})();
+	}
 
-  function renderExamesInDetails(pacienteId) {
-    const container = $("#mExamesBox");
-    if (!container) return;
+	function renderExamesInDetails(pacienteId) {
+		const container = $("#mExamesBox");
+		if (!container) return;
 
-    container.innerHTML = `<div class="muted">Carregando exames...</div>`;
+		container.innerHTML = `<div class="muted">Carregando exames...</div>`;
 
-    (async () => {
-      try {
-        const exames = await fetchExamesByPacienteId(pacienteId);
+		(async () => {
+			try {
+				const exames = await fetchExamesByPacienteId(pacienteId);
 
-        if (!Array.isArray(exames) || exames.length === 0) {
-          container.innerHTML = `<div class="muted">Nenhum exame enviado pelo paciente.</div>`;
-          return;
-        }
+				if (!Array.isArray(exames) || exames.length === 0) {
+					container.innerHTML = `<div class="muted">Nenhum exame enviado pelo paciente.</div>`;
+					return;
+				}
 
-        container.innerHTML = exames.map(e => {
-          const versao = (e.versao != null) ? `v${e.versao}` : "—";
-          const enviado = e.enviadoEm ? new Date(e.enviadoEm).toLocaleString() : "";
-          const desc = String(e.descricao || "").trim();
-          const nome = e.nomeOriginal || "arquivo";
+				container.innerHTML = exames.map(e => {
+					const versao = (e.versao != null) ? `v${e.versao}` : "—";
+					const enviado = e.enviadoEm ? new Date(e.enviadoEm).toLocaleString() : "";
+					const desc = String(e.descricao || "").trim();
+					const nome = e.nomeOriginal || "arquivo";
 
-          return `
+					return `
             <div class="item">
               <div class="item__top">
                 <div>
@@ -1119,37 +1273,37 @@ function renderMedico() {
                       data-dl-exame="${e.id}" data-name="${escapeAttr(nome)}">📎 ${escapeHTML(nome)}</button>
             </div>
           `;
-        }).join("");
+				}).join("");
 
-        $$('[data-dl-exame]', container).forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const exameId = btn.dataset.dlExame;
-            const nome = btn.dataset.name || "arquivo";
-            try {
-              await downloadExame(exameId, nome);
-            } catch (err) {
-              toast(inferFriendlyError(err));
-            }
-          });
-        });
+				$$('[data-dl-exame]', container).forEach(btn => {
+					btn.addEventListener('click', async () => {
+						const exameId = btn.dataset.dlExame;
+						const nome = btn.dataset.name || "arquivo";
+						try {
+							await downloadExame(exameId, nome);
+						} catch (err) {
+							toast(inferFriendlyError(err));
+						}
+					});
+				});
 
-      } catch (err) {
-        container.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-      }
-    })();
-  }
+			} catch (err) {
+				container.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+			}
+		})();
+	}
 
-  async function renderDetalhes(id) {
-    $("#mSub").textContent = "Carregando...";
-    $("#mDetalhes").innerHTML = `<div class="muted">Carregando...</div>`;
+	async function renderDetalhes(id) {
+		$("#mSub").textContent = "Carregando...";
+		$("#mDetalhes").innerHTML = `<div class="muted">Carregando...</div>`;
 
-    try {
-      const p = await fetchPacienteById(id);
-      $("#mSub").textContent = `${p.nome || "Paciente"}`;
+		try {
+			const p = await fetchPacienteById(id);
+			$("#mSub").textContent = `${p.nome || "Paciente"}`;
 
-      const g = generoLabel(p.genero);
+			const g = generoLabel(p.genero);
 
-      $("#mDetalhes").innerHTML = `
+			$("#mDetalhes").innerHTML = `
         <div class="item">
           <div class="muted">Nome</div><div>${escapeHTML(p.nome || "—")}</div>
           <div class="hr"></div>
@@ -1186,45 +1340,257 @@ function renderMedico() {
         </div>
       `;
 
-      renderHistoricoInDetails(id);
-      renderExamesInDetails(id);
+			renderHistoricoInDetails(id);
+			renderExamesInDetails(id);
 
-    } catch (err) {
-      $("#mSub").textContent = "Erro";
-      $("#mDetalhes").innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-    }
-  }
+		} catch (err) {
+			$("#mSub").textContent = "Erro";
+			$("#mDetalhes").innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+		}
+	}
 
-  $("#mBusca").addEventListener("input", renderLista);
-  $("#btnReloadPacientes").addEventListener("click", loadPacientes);
+	$("#mBusca").addEventListener("input", renderLista);
+	$("#btnReloadPacientes").addEventListener("click", loadPacientes);
 
-  loadPacientes();
+	loadPacientes();
 }
+
+function renderMedicoPaciente() {
+	const meta = getUserMeta();
+	const role = normalizeRole(meta.role || "");
+	if (!meta.token) return (toast("Faça login."), setTimeout(() => location.href = "index.html", 250));
+	if (role !== "MEDICO") return (toast("Acesso restrito."), setTimeout(() => location.href = "index.html", 250));
+
+	const pacienteId = Number(qs("pacienteId"));
+	if (!pacienteId) return (toast("Paciente inválido."), setTimeout(() => location.href = "medico.html", 250));
+
+	const root = $("#pageRoot");
+	root.innerHTML = `
+    <div class="page-center">
+      <div class="card card--flat">
+        <div class="card__header">
+          <h2 class="card__title">Detalhes do paciente</h2>
+          <p class="card__subtitle" id="mpSub">Carregando...</p>
+        </div>
+        <div class="card__body" id="mpTop">
+          <div class="muted">Carregando...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header">
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+            <div>
+              <h2 class="card__title" id="mpTitle">Conteúdo</h2>
+              <p class="card__subtitle">Selecione a opção desejada.</p>
+            </div>
+            <a class="btn btn--ghost" href="medico.html">← Voltar</a>
+          </div>
+
+          <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap;">
+            <button class="btn btn--ghost" type="button" id="mpTabExames">Exames</button>
+            <button class="btn btn--ghost" type="button" id="mpTabHistorico">Histórico familiar</button>
+            <button class="btn" type="button" id="mpTabChat">Chat</button>
+          </div>
+        </div>
+
+        <div class="card__body">
+          <div id="mpPaneExames" class="list"></div>
+          <div id="mpPaneHistorico" class="list vm-hidden"></div>
+          <div id="mpPaneChat" class="vm-hidden"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+	function setTab(tab) {
+		$("#mpPaneExames").classList.toggle("vm-hidden", tab !== "exames");
+		$("#mpPaneHistorico").classList.toggle("vm-hidden", tab !== "historico");
+		$("#mpPaneChat").classList.toggle("vm-hidden", tab !== "chat");
+
+		$("#mpTitle").textContent =
+			tab === "exames" ? "Exames" :
+				tab === "historico" ? "Histórico familiar" :
+					"Chat";
+	}
+
+	async function renderTop() {
+		try {
+			const p = await fetchPacienteById(pacienteId);
+			$("#mpSub").textContent = p.nome || "Paciente";
+			$("#mpTop").innerHTML = `
+        <div class="item">
+          <div class="muted">Nome</div><div>${escapeHTML(p.nome || "—")}</div>
+          <div class="hr"></div>
+          <div class="muted">Nascimento</div><div>${escapeHTML(p.dataNascimento || "—")}</div>
+          <div class="hr"></div>
+          <div class="muted">Observações</div><div>${escapeHTML(p.observacoes || "—")}</div>
+        </div>
+      `;
+		} catch (err) {
+			$("#mpSub").textContent = "Erro";
+			$("#mpTop").innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+		}
+	}
+
+	async function renderExames() {
+		const container = $("#mpPaneExames");
+		container.innerHTML = `<div class="muted">Carregando exames...</div>`;
+		try {
+			const exames = await fetchExamesByPacienteId(pacienteId);
+			if (!Array.isArray(exames) || exames.length === 0) {
+				container.innerHTML = `<div class="muted">Nenhum exame enviado.</div>`;
+				return;
+			}
+			container.innerHTML = exames.map(e => `
+        <div class="item">
+          <div class="item__top">
+            <div>
+              <p class="item__title">Exame</p>
+              <div class="item__meta">${escapeHTML(e.enviadoEm ? new Date(e.enviadoEm).toLocaleString() : "")}</div>
+            </div>
+            <span class="badge">exame</span>
+          </div>
+          <div class="hr"></div>
+          <button class="btn btn--ghost" type="button"
+            data-dl-exame="${e.id}" data-name="${escapeAttr(e.nomeOriginal || "arquivo")}">
+            📎 ${escapeHTML(e.nomeOriginal || "arquivo")}
+          </button>
+        </div>
+      `).join("");
+
+			$$('[data-dl-exame]', container).forEach(btn => {
+				btn.addEventListener('click', async () => {
+					await downloadExame(btn.dataset.dlExame, btn.dataset.name || "arquivo");
+				});
+			});
+		} catch (err) {
+			container.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+		}
+	}
+
+	async function renderHistorico() {
+		const container = $("#mpPaneHistorico");
+		container.innerHTML = `<div class="muted">Carregando histórico...</div>`;
+		try {
+			const historicos = await fetchHistoricosByPacienteId(pacienteId);
+			if (!Array.isArray(historicos) || historicos.length === 0) {
+				container.innerHTML = `<div class="muted">Nenhum histórico cadastrado.</div>`;
+				return;
+			}
+			container.innerHTML = historicos.map(h => `
+        <div class="item">
+          <div class="item__top">
+            <div>
+              <p class="item__title">Histórico</p>
+              <div class="item__meta">${escapeHTML(h.criadoEm ? new Date(h.criadoEm).toLocaleString() : "")}</div>
+            </div>
+            <span class="badge">histórico</span>
+          </div>
+          <div class="hr"></div>
+          <div>${historicoTextoParaHtml(h.textoHistorico)}</div>
+        </div>
+      `).join("");
+		} catch (err) {
+			container.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+		}
+	}
+
+	async function ensureChatAndRender() {
+		const pane = $("#mpPaneChat");
+		pane.innerHTML = `<div class="muted">Carregando chat...</div>`;
+		try {
+			const chatId = await startChat(pacienteId); // médico inicia/garante chat
+
+			pane.innerHTML = `
+        <div class="muted" style="margin-bottom:10px;">
+          Para a paciente você aparece como <strong>Médico(a)</strong>.
+        </div>
+        <div class="card card--flat" style="margin:0;">
+          <div class="card__body">
+            <div id="mpMsgList" class="list" style="max-height:360px; overflow:auto;"></div>
+            <div class="hr"></div>
+            <form id="mpMsgForm" class="row" style="gap:10px; align-items:flex-end;">
+              <div class="field" style="flex:1;">
+                <label>Mensagem</label>
+                <input id="mpMsgText" required />
+              </div>
+              <button class="btn" type="submit">Enviar</button>
+              <a class="btn btn--ghost" href="Chat.html?chatId=${chatId}">Tela cheia</a>
+            </form>
+          </div>
+        </div>
+      `;
+
+			async function loadMsgs() {
+				const list = $("#mpMsgList");
+				const msgs = await fetchChatMessages(chatId);
+				list.innerHTML = (msgs || []).map(m => `
+          <div class="item">
+            <div class="item__top">
+              <div>
+                <p class="item__title">${escapeHTML(m.sender === "MEDICO" ? "Você" : "Paciente")}</p>
+                <div class="item__meta">${escapeHTML(m.enviadoEm ? new Date(m.enviadoEm).toLocaleString() : "")}</div>
+              </div>
+              <span class="badge">msg</span>
+            </div>
+            <div class="hr"></div>
+            <div>${escapeHTML(m.texto || "")}</div>
+          </div>
+        `).join("") || `<div class="muted">Nenhuma mensagem.</div>`;
+				list.scrollTop = list.scrollHeight;
+			}
+
+			await loadMsgs();
+
+			$("#mpMsgForm").addEventListener("submit", async (e) => {
+				e.preventDefault();
+				const txt = $("#mpMsgText").value.trim();
+				if (!txt) return;
+				await sendChatMessage(chatId, txt);
+				$("#mpMsgText").value = "";
+				await loadMsgs();
+			});
+
+		} catch (err) {
+			pane.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+		}
+	}
+
+	$("#mpTabExames").addEventListener("click", () => { setTab("exames"); renderExames(); });
+	$("#mpTabHistorico").addEventListener("click", () => { setTab("historico"); renderHistorico(); });
+	$("#mpTabChat").addEventListener("click", () => { setTab("chat"); ensureChatAndRender(); });
+
+	renderTop();
+	setTab("exames");
+	renderExames();
+}
+
 
 
 
 /* -------- Histórico Familiar (somente Paciente cria; Médico não usa página) -------- */
 function renderHistorico() {
-  const meta = getUserMeta();
-  const role = normalizeRole(meta.role || "");
-  if (!meta.token) {
-    toast("Faça login para acessar.");
-    return setTimeout(() => window.location.href = "index.html", 250);
-  }
+	const meta = getUserMeta();
+	const role = normalizeRole(meta.role || "");
+	if (!meta.token) {
+		toast("Faça login para acessar.");
+		return setTimeout(() => window.location.href = "index.html", 250);
+	}
 
-  const isPaciente = role === "PACIENTE";
-  const isMedico = role === "MEDICO";
+	const isPaciente = role === "PACIENTE";
+	const isMedico = role === "MEDICO";
 
-  const root = $("#pageRoot");
-  root.innerHTML = `
+	const root = $("#pageRoot");
+	root.innerHTML = `
     <div class="card card--flat">
       <div class="card__header">
         <h2 class="card__title">Histórico Familiar</h2>
         <p class="card__subtitle">
           ${isPaciente
-            ? "Cada vez que você salva, uma nova versão do histórico é criada. Exames ficam na página “Exames”."
-            : "Apenas visualização."
-          }
+			? "Cada vez que você salva, uma nova versão do histórico é criada. Exames ficam na página “Exames”."
+			: "Apenas visualização."
+		}
         </p>
       </div>
 
@@ -1314,45 +1680,45 @@ function renderHistorico() {
     </div>
   `;
 
-  const inputPacienteId = $("#hfPacienteId");
-  const hint = $("#hfHint");
-  const list = $("#hfList");
+	const inputPacienteId = $("#hfPacienteId");
+	const hint = $("#hfHint");
+	const list = $("#hfList");
 
-  const prevBtn = $("#btnHfPrev");
-  const prevBox = $("#hfPrevBox");
-  let prevHistorico = null;
+	const prevBtn = $("#btnHfPrev");
+	const prevBox = $("#hfPrevBox");
+	let prevHistorico = null;
 
-  const qp = qs("pacienteId");
-  if (qp) inputPacienteId.value = qp;
+	const qp = qs("pacienteId");
+	if (qp) inputPacienteId.value = qp;
 
-  function buildTexto() {
-    const v = (id) => String($(id)?.value || "").trim();
-    return [
-      `1) ${v("#hfQ1")}`,
-      `2) ${v("#hfQ2")}`,
-      `3) ${v("#hfQ3")}`,
-      `4) ${v("#hfQ4")}`,
-      `5) ${v("#hfQ5")}`,
-      `6) ${v("#hfQ6")}`,
-      `7) ${v("#hfQ7")}`,
-      `8) ${v("#hfQ8")}`,
-      `9) ${v("#hfQ9")}`,
-      `10) ${v("#hfQ10")}`,
-    ].join("\n");
-  }
+	function buildTexto() {
+		const v = (id) => String($(id)?.value || "").trim();
+		return [
+			`1) ${v("#hfQ1")}`,
+			`2) ${v("#hfQ2")}`,
+			`3) ${v("#hfQ3")}`,
+			`4) ${v("#hfQ4")}`,
+			`5) ${v("#hfQ5")}`,
+			`6) ${v("#hfQ6")}`,
+			`7) ${v("#hfQ7")}`,
+			`8) ${v("#hfQ8")}`,
+			`9) ${v("#hfQ9")}`,
+			`10) ${v("#hfQ10")}`,
+		].join("\n");
+	}
 
-  function renderPrevBox() {
-    if (!prevBox) return;
-    if (!prevHistorico) {
-      prevBox.hidden = true;
-      prevBox.innerHTML = "";
-      return;
-    }
-    const versao = (prevHistorico.versao != null) ? `v${prevHistorico.versao}` : "—";
-    const criado = prevHistorico.criadoEm ? new Date(prevHistorico.criadoEm).toLocaleString() : "";
-    const textoHtml = historicoTextoParaHtml(prevHistorico.textoHistorico);
+	function renderPrevBox() {
+		if (!prevBox) return;
+		if (!prevHistorico) {
+			prevBox.hidden = true;
+			prevBox.innerHTML = "";
+			return;
+		}
+		const versao = (prevHistorico.versao != null) ? `v${prevHistorico.versao}` : "—";
+		const criado = prevHistorico.criadoEm ? new Date(prevHistorico.criadoEm).toLocaleString() : "";
+		const textoHtml = historicoTextoParaHtml(prevHistorico.textoHistorico);
 
-    prevBox.innerHTML = `
+		prevBox.innerHTML = `
       <div class="item__top">
         <div>
           <p class="item__title">Histórico anterior ${escapeHTML(versao)}</p>
@@ -1363,46 +1729,46 @@ function renderHistorico() {
       <div class="hr"></div>
       <div>${textoHtml}</div>
     `;
-  }
+	}
 
-  async function carregarLista() {
-    const pacienteId = Number(inputPacienteId.value);
-    if (!pacienteId) {
-      list.innerHTML = `<div class="muted">Paciente não definido.</div>`;
-      return;
-    }
+	async function carregarLista() {
+		const pacienteId = Number(inputPacienteId.value);
+		if (!pacienteId) {
+			list.innerHTML = `<div class="muted">Paciente não definido.</div>`;
+			return;
+		}
 
-    list.innerHTML = `<div class="muted">Carregando...</div>`;
+		list.innerHTML = `<div class="muted">Carregando...</div>`;
 
-    try {
-      const historicos = await fetchHistoricosByPacienteId(pacienteId);
+		try {
+			const historicos = await fetchHistoricosByPacienteId(pacienteId);
 
-      // ✅ define a “anterior” como a segunda mais recente
-      prevHistorico = Array.isArray(historicos) && historicos.length >= 2 ? historicos[1] : null;
-      if (prevBtn) prevBtn.disabled = !prevHistorico;
-      if (prevBox && !prevBox.hidden) renderPrevBox();
+			// ✅ define a “anterior” como a segunda mais recente
+			prevHistorico = Array.isArray(historicos) && historicos.length >= 2 ? historicos[1] : null;
+			if (prevBtn) prevBtn.disabled = !prevHistorico;
+			if (prevBox && !prevBox.hidden) renderPrevBox();
 
-      if (!Array.isArray(historicos) || historicos.length === 0) {
-        list.innerHTML = `<div class="muted">Nenhuma versão ainda.</div>`;
-        return;
-      }
+			if (!Array.isArray(historicos) || historicos.length === 0) {
+				list.innerHTML = `<div class="muted">Nenhuma versão ainda.</div>`;
+				return;
+			}
 
-      list.innerHTML = historicos.map(h => {
-        const versao = (h.versao != null) ? `v${h.versao}` : "—";
-        const criado = h.criadoEm ? new Date(h.criadoEm).toLocaleString() : "";
-        const textoHtml = historicoTextoParaHtml(h.textoHistorico);
-        const anexos = Array.isArray(h.anexos) ? h.anexos : [];
+			list.innerHTML = historicos.map(h => {
+				const versao = (h.versao != null) ? `v${h.versao}` : "—";
+				const criado = h.criadoEm ? new Date(h.criadoEm).toLocaleString() : "";
+				const textoHtml = historicoTextoParaHtml(h.textoHistorico);
+				const anexos = Array.isArray(h.anexos) ? h.anexos : [];
 
-        const anexosHtml = anexos.length ? anexos.map(a => {
-          const nome = a.nomeOriginal || `anexo-${a.id}`;
-          return `
+				const anexosHtml = anexos.length ? anexos.map(a => {
+					const nome = a.nomeOriginal || `anexo-${a.id}`;
+					return `
             <div>
               <button class="btn btn--ghost" type="button" data-dl="${a.id}" data-name="${escapeAttr(nome)}">📎 ${escapeHTML(nome)}</button>
             </div>
           `;
-        }).join("") : "";
+				}).join("") : "";
 
-        return `
+				return `
           <div class="item">
             <div class="item__top">
               <div>
@@ -1416,84 +1782,84 @@ function renderHistorico() {
             ${anexosHtml ? `<div class="hr"></div><div>${anexosHtml}</div>` : ""}
           </div>
         `;
-      }).join("");
+			}).join("");
 
-      $$('[data-dl]', list).forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const anexoId = btn.dataset.dl;
-          const nome = btn.dataset.name || "arquivo";
-          try {
-            await downloadHistoricoAnexo(anexoId, nome);
-          } catch (err) {
-            toast(inferFriendlyError(err));
-          }
-        });
-      });
+			$$('[data-dl]', list).forEach(btn => {
+				btn.addEventListener('click', async () => {
+					const anexoId = btn.dataset.dl;
+					const nome = btn.dataset.name || "arquivo";
+					try {
+						await downloadHistoricoAnexo(anexoId, nome);
+					} catch (err) {
+						toast(inferFriendlyError(err));
+					}
+				});
+			});
 
-    } catch (err) {
-      list.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-    }
-  }
+		} catch (err) {
+			list.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+		}
+	}
 
-  if (isPaciente) hint.textContent = "Você está registrando seu histórico familiar. Ao salvar, uma nova versão é criada.";
-  else if (isMedico) hint.textContent = "Visualização do histórico familiar do paciente.";
-  else hint.textContent = "Acesso restrito.";
+	if (isPaciente) hint.textContent = "Você está registrando seu histórico familiar. Ao salvar, uma nova versão é criada.";
+	else if (isMedico) hint.textContent = "Visualização do histórico familiar do paciente.";
+	else hint.textContent = "Acesso restrito.";
 
-  //  PacienteId via /me
-  (async () => {
-    try {
-      if (isPaciente) {
-        const me = await fetchMePaciente();
-        if (me?.idPaciente) inputPacienteId.value = String(me.idPaciente);
-      }
-    } catch (_) {}
-    carregarLista().catch(() => {});
-  })();
+	//  PacienteId via /me
+	(async () => {
+		try {
+			if (isPaciente) {
+				const me = await fetchMePaciente();
+				if (me?.idPaciente) inputPacienteId.value = String(me.idPaciente);
+			}
+		} catch (_) { }
+		carregarLista().catch(() => { });
+	})();
 
-  //  botão histórico anterior
-  prevBtn?.addEventListener("click", () => {
-    if (!prevHistorico) return toast("Ainda não existe histórico anterior.");
-    prevBox.hidden = !prevBox.hidden;
-    if (!prevBox.hidden) renderPrevBox();
-  });
+	//  botão histórico anterior
+	prevBtn?.addEventListener("click", () => {
+		if (!prevHistorico) return toast("Ainda não existe histórico anterior.");
+		prevBox.hidden = !prevBox.hidden;
+		if (!prevBox.hidden) renderPrevBox();
+	});
 
-  //  submit correto (SEM upload de exames aqui)
-  $("#formHistorico").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (!isPaciente) return;
+	//  submit correto (SEM upload de exames aqui)
+	$("#formHistorico").addEventListener("submit", async (e) => {
+		e.preventDefault();
+		if (!isPaciente) return;
 
-    const form = $("#formHistorico");
-    if (!form.reportValidity()) return;
+		const form = $("#formHistorico");
+		if (!form.reportValidity()) return;
 
-    const pacienteId = Number(inputPacienteId.value);
-    if (!pacienteId) return toast("Não consegui identificar seu perfil de paciente.");
+		const pacienteId = Number(inputPacienteId.value);
+		if (!pacienteId) return toast("Não consegui identificar seu perfil de paciente.");
 
-    const textoHistorico = buildTexto();
+		const textoHistorico = buildTexto();
 
-    try {
-      await createHistoricoSnapshot({ pacienteId, textoHistorico }); 
-      toast("Versão salva!");
-      await carregarLista();
-    } catch (err) {
-      toast(inferFriendlyError(err));
-    }
-  });
+		try {
+			await createHistoricoSnapshot({ pacienteId, textoHistorico });
+			toast("Versão salva!");
+			await carregarLista();
+		} catch (err) {
+			toast(inferFriendlyError(err));
+		}
+	});
 }
 
 function renderExames() {
-  const meta = getUserMeta();
-  const role = normalizeRole(meta.role || "");
-  if (!meta.token) {
-    toast("Faça login para acessar.");
-    return setTimeout(() => window.location.href = "index.html", 250);
-  }
-  if (role !== "PACIENTE") {
-    toast("Acesso restrito.");
-    return setTimeout(() => window.location.href = "index.html", 250);
-  }
+	const meta = getUserMeta();
+	const role = normalizeRole(meta.role || "");
+	if (!meta.token) {
+		toast("Faça login para acessar.");
+		return setTimeout(() => window.location.href = "index.html", 250);
+	}
+	if (role !== "PACIENTE") {
+		toast("Acesso restrito.");
+		return setTimeout(() => window.location.href = "index.html", 250);
+	}
 
-  const root = $("#pageRoot");
-  root.innerHTML = `
+	const root = $("#pageRoot");
+	root.innerHTML = `
     <div class="card card--flat">
       <div class="card__header">
         <h2 class="card__title">Exames e laudos</h2>
@@ -1536,31 +1902,31 @@ function renderExames() {
     </div>
   `;
 
-  const inputPacienteId = $("#ePacienteId");
-  const list = $("#eList");
+	const inputPacienteId = $("#ePacienteId");
+	const list = $("#eList");
 
-  async function carregarLista() {
-    const pacienteId = Number(inputPacienteId.value);
-    if (!pacienteId) {
-      list.innerHTML = `<div class="muted">Paciente não definido.</div>`;
-      return;
-    }
+	async function carregarLista() {
+		const pacienteId = Number(inputPacienteId.value);
+		if (!pacienteId) {
+			list.innerHTML = `<div class="muted">Paciente não definido.</div>`;
+			return;
+		}
 
-    list.innerHTML = `<div class="muted">Carregando...</div>`;
-    try {
-      const exames = await fetchExamesByPacienteId(pacienteId);
-      if (!Array.isArray(exames) || exames.length === 0) {
-        list.innerHTML = `<div class="muted">Nenhum exame enviado ainda.</div>`;
-        return;
-      }
+		list.innerHTML = `<div class="muted">Carregando...</div>`;
+		try {
+			const exames = await fetchExamesByPacienteId(pacienteId);
+			if (!Array.isArray(exames) || exames.length === 0) {
+				list.innerHTML = `<div class="muted">Nenhum exame enviado ainda.</div>`;
+				return;
+			}
 
-      list.innerHTML = exames.map(e => {
-        const versao = (e.versao != null) ? `v${e.versao}` : "—";
-        const enviado = e.enviadoEm ? new Date(e.enviadoEm).toLocaleString() : "";
-        const desc = String(e.descricao || "").trim();
-        const nome = e.nomeOriginal || "arquivo";
+			list.innerHTML = exames.map(e => {
+				const versao = (e.versao != null) ? `v${e.versao}` : "—";
+				const enviado = e.enviadoEm ? new Date(e.enviadoEm).toLocaleString() : "";
+				const desc = String(e.descricao || "").trim();
+				const nome = e.nomeOriginal || "arquivo";
 
-        return `
+				return `
           <div class="item">
             <div class="item__top">
               <div>
@@ -1577,87 +1943,89 @@ function renderExames() {
                     data-dl-exame="${e.id}" data-name="${escapeAttr(nome)}">📎 ${escapeHTML(nome)}</button>
           </div>
         `;
-      }).join("");
+			}).join("");
 
-      $$('[data-dl-exame]', list).forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const exameId = btn.dataset.dlExame;
-          const nome = btn.dataset.name || "arquivo";
-          try {
-            await downloadExame(exameId, nome);
-          } catch (err) {
-            toast(inferFriendlyError(err));
-          }
-        });
-      });
+			$$('[data-dl-exame]', list).forEach(btn => {
+				btn.addEventListener('click', async () => {
+					const exameId = btn.dataset.dlExame;
+					const nome = btn.dataset.name || "arquivo";
+					try {
+						await downloadExame(exameId, nome);
+					} catch (err) {
+						toast(inferFriendlyError(err));
+					}
+				});
+			});
 
-    } catch (err) {
-      list.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-    }
-  }
+		} catch (err) {
+			list.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+		}
+	}
 
-  (async () => {
-    try {
-      const me = await fetchMePaciente();
-      if (!me?.idPaciente) throw new Error("Perfil de paciente não encontrado.");
-      inputPacienteId.value = String(me.idPaciente);
+	(async () => {
+		try {
+			const me = await fetchMePaciente();
+			if (!me?.idPaciente) throw new Error("Perfil de paciente não encontrado.");
+			inputPacienteId.value = String(me.idPaciente);
 
-      $("#eLoading").hidden = true;
-      $("#eBox").hidden = false;
+			$("#eLoading").hidden = true;
+			$("#eBox").hidden = false;
 
-      await carregarLista();
-    } catch (err) {
-      $("#eLoading").textContent = inferFriendlyError(err);
-    }
-  })();
+			await carregarLista();
+		} catch (err) {
+			$("#eLoading").textContent = inferFriendlyError(err);
+		}
+	})();
 
-  $("#formExame").addEventListener("submit", async (e) => {
-    e.preventDefault();
+	$("#formExame").addEventListener("submit", async (e) => {
+		e.preventDefault();
 
-    const form = $("#formExame");
-    if (!form.reportValidity()) return;
+		const form = $("#formExame");
+		if (!form.reportValidity()) return;
 
-    const pacienteId = Number(inputPacienteId.value);
-    const descricao = $("#eDescricao").value.trim();
-    const file = $("#eArquivo").files?.[0];
+		const pacienteId = Number(inputPacienteId.value);
+		const descricao = $("#eDescricao").value.trim();
+		const file = $("#eArquivo").files?.[0];
 
-    if (!pacienteId) return toast("Não consegui identificar seu perfil de paciente.");
-    if (!file) return toast("Selecione um arquivo.");
+		if (!pacienteId) return toast("Não consegui identificar seu perfil de paciente.");
+		if (!file) return toast("Selecione um arquivo.");
 
-    try {
-      await uploadExame({ pacienteId, descricao, file });
-      toast("Exame enviado!");
+		try {
+			await uploadExame({ pacienteId, descricao, file });
+			toast("Exame enviado!");
 
-      $("#eDescricao").value = "";
-      $("#eArquivo").value = "";
+			$("#eDescricao").value = "";
+			$("#eArquivo").value = "";
 
-      await carregarLista();
-    } catch (err) {
-      toast(inferFriendlyError(err));
-    }
-  });
+			await carregarLista();
+		} catch (err) {
+			toast(inferFriendlyError(err));
+		}
+	});
 }
 
 /* ---------------- Boot ---------------- */
 (function boot() {
-  const page = document.body.dataset.page || "home";
-  const meta = getUserMeta();
-  const logged = !!meta.token;
-  const role = normalizeRole(meta.role || "");
+	const page = document.body.dataset.page || "home";
+	const meta = getUserMeta();
+	const logged = !!meta.token;
+	const role = normalizeRole(meta.role || "");
 
-  // requisito #2: se já estiver logado, não entra no cadastro
-  if (page === "cadastro" && logged) {
-    goPanelByRole(role);
-    return;
-  }
+	// requisito #2: se já estiver logado, não entra no cadastro
+	if (page === "cadastro" && logged) {
+		goPanelByRole(role);
+		return;
+	}
 
-  $("#app").innerHTML = buildLayout(page);
-  bindCommon();
-  
-  if (page === "home") renderHome();
-  if (page === "cadastro") renderCadastro();
-  if (page === "paciente") renderPaciente();
-  if (page === "medico") renderMedico();
-  if (page === "historico") renderHistorico();
-  if (page === "exames") renderExames();
+	$("#app").innerHTML = buildLayout(page);
+	bindCommon();
+
+	if (page === "home") renderHome();
+	if (page === "cadastro") renderCadastro();
+	if (page === "paciente") renderPaciente();
+	if (page === "medico") renderMedico();
+	if (page === "medico_paciente") renderMedicoPaciente();
+	if (page === "historico") renderHistorico();
+	if (page === "exames") renderExames();
+	if (page === "chat") renderChatHub();
 })();

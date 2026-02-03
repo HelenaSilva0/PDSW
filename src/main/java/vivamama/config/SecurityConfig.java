@@ -1,6 +1,9 @@
 package vivamama.config;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
+
+import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -43,12 +46,20 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
             .authorizeHttpRequests(auth -> {
+                auth.dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.FORWARD).permitAll();
+                auth.requestMatchers("/error").permitAll();
+                auth.requestMatchers("/favicon.ico").permitAll();
+
+
+                auth.requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll();
                 auth.requestMatchers(
                 		"/",
                 	    "/index.html",
                 	    "/cadastro.html",
                 	    "/paciente.html",
                 	    "/medico.html",
+                	    "/medico_paciente.html",
+                	    "/Chat.html",
                 	    "/HistoricoFamiliar.html",
                 	    "/Exames.html",
                 	    "/app.js",
@@ -64,9 +75,6 @@ public class SecurityConfig {
                 auth.anyRequest().authenticated();
             })
 
-            // ✅ Deixa o comportamento claro:
-            // - sem login/token -> 401
-            // - logado mas sem permissão -> 403
             .exceptionHandling(eh -> eh
                 .authenticationEntryPoint((req, res, ex) -> {
                     res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -88,4 +96,5 @@ public class SecurityConfig {
 
         return http.build();
     }
+    
 }
