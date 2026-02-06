@@ -23,6 +23,7 @@ public class Paciente {
 
 	@Column(length = 100, nullable = false)
 	private String nome;
+	@Column(name = "data_nascimento")
 	private LocalDate dataNascimento;
 	private String historicoFamiliar;
 	private String observacoes;

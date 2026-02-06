@@ -1,19 +1,5 @@
 /* Viva Mama - Front multi páginas (Spring + JWT)
 
-✅ Ajustes pedidos:
-1) Após cadastro, usuário já fica logado (register -> login automático).
-2) Após login, NÃO aparece a função de cadastro (menu e acesso direto ao cadastro redireciona).
-3) Identificação de perfil (Paciente/Médico) no header.
-4) Médico NÃO cadastra histórico: só visualiza. A visualização do histórico aparece na sessão DETALHES, após selecionar um paciente.
-5) Se lista de pacientes estiver vazia, mostramos aviso claro (normalmente é porque NÃO existe perfil de paciente criado no backend).
-6) Tratamento básico para respostas com redirect (303) no fetch.
-7) Paciente: se /pacientes/me retornar 404 (perfil não existe), a tela mostra formulário para CRIAR o perfil (sem ir pro cadastro), e depois carrega os dados pessoais para editar.
-
-🛠 Correções para "login/cadastro não funciona":
-A) Cadastro: campos hidden com required travavam submit -> agora desabilita inputs do grupo não selecionado e ajusta required.
-B) Login: normaliza e-mail para lowercase.
-C) apiFetch: não envia Authorization Bearer em /auth/* (evita token velho quebrar login/register).
-D) Cadastro médico: cria perfil de médico também (POST /profiles/medico).
 */
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -57,11 +43,11 @@ function setToken(token) { localStorage.setItem(STORAGE.token, token); }
 function getToken() { return localStorage.getItem(STORAGE.token) || ""; }
 
 function getUserMeta() {
-  return {
-    token: getToken(),
-    userId: Number(localStorage.getItem(STORAGE.userId) || 0) || null,
-    role: localStorage.getItem(STORAGE.role) || ""
-  };
+	return {
+		token: getToken(),
+		userId: Number(localStorage.getItem(STORAGE.userId) || 0) || null,
+		role: localStorage.getItem(STORAGE.role) || ""
+	};
 }
 
 function clearAuth() {
@@ -217,44 +203,44 @@ function handleAuthFailure(err) {
 
 /* ---------------- Fetch com JWT + redirect ---------------- */
 async function apiFetch(path, options = {}) {
-  const token = getToken();
+	const token = getToken();
 
-  const headers = new Headers(options.headers || {});
-  headers.set("Accept", "application/json");
+	const headers = new Headers(options.headers || {});
+	headers.set("Accept", "application/json");
 
-  const isFormData = (typeof FormData !== "undefined") && (options.body instanceof FormData);
-  if (options.body && !isFormData && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
+	const isFormData = (typeof FormData !== "undefined") && (options.body instanceof FormData);
+	if (options.body && !isFormData && !headers.has("Content-Type")) {
+		headers.set("Content-Type", "application/json");
+	}
 
-  const isAuthRoute = path.startsWith("/auth/");
-  if (!isAuthRoute && token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
+	const isAuthRoute = path.startsWith("/auth/");
+	if (!isAuthRoute && token && !headers.has("Authorization")) {
+		headers.set("Authorization", `Bearer ${token}`);
+	}
 
-  const res = await fetch(path, { ...options, headers });
+	const res = await fetch(path, { ...options, headers });
 
-  if (res.status === 401 || res.status === 403) {
-    const msg = await res.text().catch(() => "");
-    const err = new Error(msg || (res.status === 401 ? "Não autenticado." : "Acesso negado."));
-    err.status = res.status;
-    throw err;
-  }
+	if (res.status === 401 || res.status === 403) {
+		const msg = await res.text().catch(() => "");
+		const err = new Error(msg || (res.status === 401 ? "Não autenticado." : "Acesso negado."));
+		err.status = res.status;
+		throw err;
+	}
 
-  if (res.status === 204) return null;
+	if (res.status === 204) return null;
 
-  const txt = await res.text();
-  let data = null;
-  try { data = txt ? JSON.parse(txt) : null; } catch { data = txt; }
+	const txt = await res.text();
+	let data = null;
+	try { data = txt ? JSON.parse(txt) : null; } catch { data = txt; }
 
-  if (!res.ok) {
-    const err = new Error((data && (data.message || data.error)) ? (data.message || data.error) : `Erro (${res.status}).`);
-    err.status = res.status;
-    err.data = data;
-    throw err;
-  }
+	if (!res.ok) {
+		const err = new Error((data && (data.message || data.error)) ? (data.message || data.error) : `Erro (${res.status}).`);
+		err.status = res.status;
+		err.data = data;
+		throw err;
+	}
 
-  return data;
+	return data;
 }
 
 /* ---------------- Auth API ---------------- */
@@ -270,8 +256,8 @@ async function loginUser(email, senha) {
 }
 
 function setUserMeta(userId, role) {
-  localStorage.setItem(STORAGE.userId, String(userId ?? ""));
-  localStorage.setItem(STORAGE.role, normalizeRole(role));
+	localStorage.setItem(STORAGE.userId, String(userId ?? ""));
+	localStorage.setItem(STORAGE.role, normalizeRole(role));
 }
 
 async function registerUser(payload) {
@@ -356,25 +342,25 @@ async function fetchExamesByPacienteId(idPaciente) {
 }
 
 async function startChat(pacienteId) {
-  return apiFetch("/chats/start", {
-    method: "POST",
-    body: JSON.stringify({ pacienteId })
-  });
+	return apiFetch("/chats/start", {
+		method: "POST",
+		body: JSON.stringify({ pacienteId })
+	});
 }
 
 async function fetchChats() {
-  return apiFetch("/chats");
+	return apiFetch("/chats");
 }
 
 async function fetchChatMessages(chatId) {
-  return apiFetch(`/chats/${chatId}/messages`);
+	return apiFetch(`/chats/${chatId}/messages`);
 }
 
 async function sendChatMessage(chatId, texto) {
-  return apiFetch(`/chats/${chatId}/messages`, {
-    method: "POST",
-    body: JSON.stringify({ texto })
-  });
+	return apiFetch(`/chats/${chatId}/messages`, {
+		method: "POST",
+		body: JSON.stringify({ texto })
+	});
 }
 
 async function uploadExame({ pacienteId, descricao, file }) {
@@ -891,17 +877,17 @@ function renderPaciente() {
 }
 
 function renderChatHub() {
-	  const meta = getUserMeta();
-	  const role = normalizeRole(meta.role || "");
-	  if (!meta.token) return (toast("Faça login."), setTimeout(() => location.href = "index.html", 250));
+	const meta = getUserMeta();
+	const role = normalizeRole(meta.role || "");
+	if (!meta.token) return (toast("Faça login."), setTimeout(() => location.href = "index.html", 250));
 
-	  const root = $("#pageRoot");
-	  root.innerHTML = `
+	const root = $("#pageRoot");
+	root.innerHTML = `
 	    <div class="page-center">
 	      <div class="card">
 	        <div class="card__header">
 	          <h2 class="card__title">Chat</h2>
-	          <p class="card__subtitle">Conversas (estilo WhatsApp).</p>
+	          <p class="card__subtitle">Conversas.</p>
 	        </div>
 
 	        <div class="card__body">
@@ -926,115 +912,115 @@ function renderChatHub() {
 	    </div>
 	  `;
 
-	  let currentChatId = null;
-	  let pollTimer = null;
+	let currentChatId = null;
+	let pollTimer = null;
 
-	  function stopPoll() {
-	    if (pollTimer) clearInterval(pollTimer);
-	    pollTimer = null;
-	  }
+	function stopPoll() {
+		if (pollTimer) clearInterval(pollTimer);
+		pollTimer = null;
+	}
 
-	  async function loadMessages(chatId) {
-	    const box = $("#chatMsgs");
-	    const msgs = await fetchChatMessages(chatId);
+	async function loadMessages(chatId) {
+		const box = $("#chatMsgs");
+		const msgs = await fetchChatMessages(chatId);
 
-	    const meSender = role === "PACIENTE" ? "PACIENTE" : "MEDICO";
+		const meSender = role === "PACIENTE" ? "PACIENTE" : "MEDICO";
 
-	    box.innerHTML = (msgs || []).map(m => {
-	      const mine = m.sender === meSender;
-	      return `
+		box.innerHTML = (msgs || []).map(m => {
+			const mine = m.sender === meSender;
+			return `
 	        <div class="bubble ${mine ? "bubble--me" : "bubble--other"}">
 	          <div class="bubble__text">${escapeHTML(m.texto || "")}</div>
 	          <div class="bubble__meta">${escapeHTML(m.enviadoEm ? new Date(m.enviadoEm).toLocaleString() : "")}</div>
 	        </div>
 	      `;
-	    }).join("") || `<div class="muted">Nenhuma mensagem.</div>`;
+		}).join("") || `<div class="muted">Nenhuma mensagem.</div>`;
 
-	    box.scrollTop = box.scrollHeight;
-	  }
+		box.scrollTop = box.scrollHeight;
+	}
 
-	  async function selectChat(chatId) {
-	    currentChatId = chatId;
-	    await loadMessages(chatId);
+	async function selectChat(chatId) {
+		currentChatId = chatId;
+		await loadMessages(chatId);
 
-	    stopPoll();
-	    pollTimer = setInterval(() => {
-	      if (currentChatId) loadMessages(currentChatId).catch(() => {});
-	    }, 3000);
-	  }
+		stopPoll();
+		pollTimer = setInterval(() => {
+			if (currentChatId) loadMessages(currentChatId).catch(() => { });
+		}, 3000);
+	}
 
-	  async function loadChats() {
-	    const listBox = $("#chatList");
-	    try {
-	      const chats = await fetchChats();
+	async function loadChats() {
+		const listBox = $("#chatList");
+		try {
+			const chats = await fetchChats();
 
-	      if (!Array.isArray(chats) || chats.length === 0) {
-	        listBox.innerHTML = `<div class="muted">Nenhuma conversa ainda.</div>`;
-	        return;
-	      }
+			if (!Array.isArray(chats) || chats.length === 0) {
+				listBox.innerHTML = `<div class="muted">Nenhuma conversa ainda.</div>`;
+				return;
+			}
 
-	      listBox.innerHTML = chats.map(c => {
-	        const title =
-	          role === "PACIENTE"
-	            ? (c.medicoLabel || "Médico(a)")
-	            : (c.pacienteNome || "Paciente");
+			listBox.innerHTML = chats.map(c => {
+				const title =
+					role === "PACIENTE"
+						? (c.medicoLabel || "Médico(a)")
+						: (c.pacienteNome || "Paciente");
 
-	        const sub = c.criadoEm ? new Date(c.criadoEm).toLocaleString() : "";
+				const sub = c.criadoEm ? new Date(c.criadoEm).toLocaleString() : "";
 
-	        return `
+				return `
 	          <button class="chat-item" type="button" data-chat-id="${c.chatId}">
 	            <div class="chat-item__title">${escapeHTML(title)}</div>
 	            <div class="chat-item__meta">${escapeHTML(sub)}</div>
 	          </button>
 	        `;
-	      }).join("");
+			}).join("");
 
-	      $$(".chat-item", listBox).forEach(btn => {
-	        btn.addEventListener("click", async () => {
-	          $$(".chat-item", listBox).forEach(x => x.classList.remove("chat-item--active"));
-	          btn.classList.add("chat-item--active");
-	          await selectChat(Number(btn.dataset.chatId));
-	        });
-	      });
-		  
-		  const qChatId = Number(new URLSearchParams(location.search).get("chatId") || 0);
-		  const firstId = qChatId || Number(chats[0].chatId);
+			$$(".chat-item", listBox).forEach(btn => {
+				btn.addEventListener("click", async () => {
+					$$(".chat-item", listBox).forEach(x => x.classList.remove("chat-item--active"));
+					btn.classList.add("chat-item--active");
+					await selectChat(Number(btn.dataset.chatId));
+				});
+			});
+
+			const qChatId = Number(new URLSearchParams(location.search).get("chatId") || 0);
+			const firstId = qChatId || Number(chats[0].chatId);
 
 
-	      // auto-abrir o primeiro chat
-	      //const firstId = Number(chats[0].chatId);
-	      const firstBtn = listBox.querySelector(`[data-chat-id="${firstId}"]`);
-	      if (firstBtn) firstBtn.classList.add("chat-item--active");
-	      await selectChat(firstId);
+			// auto-abrir o primeiro chat
+			//const firstId = Number(chats[0].chatId);
+			const firstBtn = listBox.querySelector(`[data-chat-id="${firstId}"]`);
+			if (firstBtn) firstBtn.classList.add("chat-item--active");
+			await selectChat(firstId);
 
-	    } catch (err) {
-	      listBox.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-	    }
-	  }
-
-	  $("#chatForm").addEventListener("submit", async (e) => {
-	    e.preventDefault();
-	    if (!currentChatId) return toast("Selecione uma conversa.");
-
-	    const input = $("#chatText");
-	    const txt = input.value.trim();
-	    if (!txt) return;
-
-	    try {
-	      await sendChatMessage(currentChatId, txt);
-	      input.value = "";
-	      await loadMessages(currentChatId);
-	    } catch (err) {
-	      toast(inferFriendlyError(err));
-	    }
-	  });
-
-	  // carregar tudo
-	  loadChats();
-
-	  // quando sair da página, parar polling (opcional)
-	  window.addEventListener("beforeunload", stopPoll);
+		} catch (err) {
+			listBox.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+		}
 	}
+
+	$("#chatForm").addEventListener("submit", async (e) => {
+		e.preventDefault();
+		if (!currentChatId) return toast("Selecione uma conversa.");
+
+		const input = $("#chatText");
+		const txt = input.value.trim();
+		if (!txt) return;
+
+		try {
+			await sendChatMessage(currentChatId, txt);
+			input.value = "";
+			await loadMessages(currentChatId);
+		} catch (err) {
+			toast(inferFriendlyError(err));
+		}
+	});
+
+	// carregar tudo
+	loadChats();
+
+	// quando sair da página, parar polling (opcional)
+	window.addEventListener("beforeunload", stopPoll);
+}
 
 
 //* -------- Médico (lista + detalhes + histórico + exames dentro de detalhes) -------- */
@@ -1251,28 +1237,32 @@ function renderMedico() {
 				}
 
 				container.innerHTML = exames.map(e => {
-					const versao = (e.versao != null) ? `v${e.versao}` : "—";
 					const enviado = e.enviadoEm ? new Date(e.enviadoEm).toLocaleString() : "";
-					const desc = String(e.descricao || "").trim();
 					const nome = e.nomeOriginal || "arquivo";
+					const desc = String(e.descricao || e.description || "").trim(); // fallback caso venha outro nome
 
 					return `
-            <div class="item">
-              <div class="item__top">
-                <div>
-                  <p class="item__title">Exame ${escapeHTML(versao)}</p>
-                  <div class="item__meta">${escapeHTML(enviado)}</div>
-                </div>
-                <span class="badge">exame</span>
-              </div>
+				    <div class="item">
+				      <div class="item__top">
+				        <div>
+				          <p class="item__title">Exame</p>
+				          <div class="item__meta">${escapeHTML(enviado)}</div>
+				        </div>
+				        <span class="badge">exame</span>
+				      </div>
 
-              ${desc ? `<div class="muted" style="margin-top:6px;">Descrição</div><div>${escapeHTML(desc)}</div>` : ""}
+				      ${desc ? `
+				        <div class="muted" style="margin-top:6px;">Descrição</div>
+				        <div class="mp-examDesc">${escapeHTML(desc)}</div>
+				      ` : ""}
 
-              <div class="hr"></div>
-              <button class="btn btn--ghost" type="button"
-                      data-dl-exame="${e.id}" data-name="${escapeAttr(nome)}">📎 ${escapeHTML(nome)}</button>
-            </div>
-          `;
+				      <div class="hr"></div>
+				      <button class="btn btn--ghost" type="button"
+				        data-dl-exame="${e.id}" data-name="${escapeAttr(nome)}">
+				        📎 ${escapeHTML(nome)}
+				      </button>
+				    </div>
+				  `;
 				}).join("");
 
 				$$('[data-dl-exame]', container).forEach(btn => {
@@ -1366,58 +1356,86 @@ function renderMedicoPaciente() {
 
 	const root = $("#pageRoot");
 	root.innerHTML = `
-    <div class="page-center">
-      <div class="card card--flat">
-        <div class="card__header">
-          <h2 class="card__title">Detalhes do paciente</h2>
-          <p class="card__subtitle" id="mpSub">Carregando...</p>
+    <div class="mp-shell">
+      <!-- ESQUERDA: detalhes do paciente -->
+      <aside class="mp-left">
+        <div class="card card--flat">
+          <div class="card__header">
+            <h2 class="card__title">Paciente</h2>
+            <p class="card__subtitle" id="mpSub">Carregando...</p>
+          </div>
+          <div class="card__body" id="mpTop">
+            <div class="muted">Carregando...</div>
+          </div>
         </div>
-        <div class="card__body" id="mpTop">
-          <div class="muted">Carregando...</div>
-        </div>
-      </div>
+      </aside>
 
-      <div class="card">
-        <div class="card__header">
-          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
-            <div>
-              <h2 class="card__title" id="mpTitle">Conteúdo</h2>
-              <p class="card__subtitle">Selecione a opção desejada.</p>
+      <!-- CENTRO: chat sempre visível -->
+      <section class="mp-main">
+        <div class="card mp-mainCard">
+          <div class="card__header">
+            <h2 class="card__title">Chat</h2>
+            <p class="card__subtitle">Você é anônimo(a) para o paciente.</p>
+          </div>
+
+          <div class="card__body mp-mainBody">
+            <div class="chat-thread">
+              <div class="chat-messages" id="mpChatMsgs">
+                <div class="muted">Carregando mensagens...</div>
+              </div>
+
+              <form class="chat-input" id="mpChatForm">
+                <input id="mpChatText" placeholder="Digite sua mensagem..." required />
+                <button class="btn" type="submit">Enviar</button>
+              </form>
             </div>
-            <a class="btn btn--ghost" href="medico.html">← Voltar</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- DIREITA: painel de informações (toggle) -->
+      <aside class="mp-right" id="mpRight">
+        <div class="card card--flat mp-rightCard">
+          <div class="card__header">
+            <div class="mp-rightHead">
+              <div>
+                <h3 class="card__title">Ações</h3>
+                <p class="card__subtitle">Informações do paciente</p>
+              </div>
+              <button class="btn btn--ghost mp-drawerClose" id="mpDrawerClose" type="button" aria-label="Fechar">✕</button>
+            </div>
           </div>
 
-          <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap;">
-            <button class="btn btn--ghost" type="button" id="mpTabExames">Exames</button>
-            <button class="btn btn--ghost" type="button" id="mpTabHistorico">Histórico familiar</button>
-            <button class="btn" type="button" id="mpTabChat">Chat</button>
+          <div class="card__body">
+            <div class="mp-actions">
+              <button class="btn btn--ghost" type="button" id="mpToggleExames">Exames</button>
+              <button class="btn btn--ghost" type="button" id="mpToggleHistorico">Histórico familiar</button>
+              <a class="btn btn--ghost" href="medico.html">← Voltar</a>
+            </div>
+
+            <div id="mpSidePanel" class="mp-sidePanel vm-hidden">
+              <div class="mp-sidePanel__header">
+                <div class="mp-sideTitle" id="mpSideTitle">Exames</div>
+              </div>
+              <div id="mpSideContent" class="list">
+                <!-- aqui entra exames/histórico -->
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="card__body">
-          <div id="mpPaneExames" class="list"></div>
-          <div id="mpPaneHistorico" class="list vm-hidden"></div>
-          <div id="mpPaneChat" class="vm-hidden"></div>
-        </div>
-      </div>
+        <!-- Botão flutuante no mobile para abrir o drawer -->
+        <button class="btn mp-drawerOpen" id="mpDrawerOpen" type="button">☰</button>
+      </aside>
     </div>
   `;
 
-	function setTab(tab) {
-		$("#mpPaneExames").classList.toggle("vm-hidden", tab !== "exames");
-		$("#mpPaneHistorico").classList.toggle("vm-hidden", tab !== "historico");
-		$("#mpPaneChat").classList.toggle("vm-hidden", tab !== "chat");
-
-		$("#mpTitle").textContent =
-			tab === "exames" ? "Exames" :
-				tab === "historico" ? "Histórico familiar" :
-					"Chat";
-	}
-
+	/* ------------------ TOP (detalhes) ------------------ */
 	async function renderTop() {
 		try {
 			const p = await fetchPacienteById(pacienteId);
 			$("#mpSub").textContent = p.nome || "Paciente";
+
 			$("#mpTop").innerHTML = `
         <div class="item">
           <div class="muted">Nome</div><div>${escapeHTML(p.nome || "—")}</div>
@@ -1433,8 +1451,91 @@ function renderMedicoPaciente() {
 		}
 	}
 
-	async function renderExames() {
-		const container = $("#mpPaneExames");
+	/* ------------------ CHAT (sempre visível + polling) ------------------ */
+	let chatId = null;
+	let pollTimer = null;
+
+	function stopPoll() {
+		if (pollTimer) clearInterval(pollTimer);
+		pollTimer = null;
+	}
+
+	async function loadMsgs() {
+		const box = $("#mpChatMsgs");
+		const msgs = await fetchChatMessages(chatId);
+
+		box.innerHTML = (msgs || []).map(m => {
+			const mine = m.sender === "MEDICO";
+			return `
+        <div class="bubble ${mine ? "bubble--me" : "bubble--other"}">
+          <div class="bubble__text">${escapeHTML(m.texto || "")}</div>
+          <div class="bubble__meta">${escapeHTML(m.enviadoEm ? new Date(m.enviadoEm).toLocaleString() : "")}</div>
+        </div>
+      `;
+		}).join("") || `<div class="muted">Nenhuma mensagem.</div>`;
+
+		box.scrollTop = box.scrollHeight;
+	}
+
+	async function initChat() {
+		try {
+			chatId = await startChat(pacienteId);
+			await loadMsgs();
+
+			stopPoll();
+			pollTimer = setInterval(() => {
+				if (chatId) loadMsgs().catch(() => { });
+			}, 3000);
+
+			$("#mpChatForm").addEventListener("submit", async (e) => {
+				e.preventDefault();
+				const input = $("#mpChatText");
+				const txt = input.value.trim();
+				if (!txt) return;
+
+				await sendChatMessage(chatId, txt);
+				input.value = "";
+				await loadMsgs();
+			});
+
+			window.addEventListener("beforeunload", stopPoll);
+		} catch (err) {
+			$("#mpChatMsgs").innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+		}
+	}
+
+	/* ------------------ PAINEL DIREITO (toggle) ------------------ */
+	let panelOpen = false;
+	let panelType = null; // "exames" | "historico" | null
+
+	function isMobile() {
+		return window.matchMedia("(max-width: 980px)").matches;
+	}
+
+	function openDrawer() {
+		$("#mpRight").classList.add("mp-right--open");
+	}
+
+	function closeDrawer() {
+		$("#mpRight").classList.remove("mp-right--open");
+	}
+
+	function updateActiveButtons() {
+		$("#mpToggleExames").classList.toggle("is-active", panelOpen && panelType === "exames");
+		$("#mpToggleHistorico").classList.toggle("is-active", panelOpen && panelType === "historico");
+	}
+
+	function showPanel(title) {
+		$("#mpSideTitle").textContent = title;
+		$("#mpSidePanel").classList.remove("vm-hidden");
+	}
+
+	function hidePanel() {
+		$("#mpSidePanel").classList.add("vm-hidden");
+		$("#mpSideContent").innerHTML = "";
+	}
+
+	async function renderExamesInto(container) {
 		container.innerHTML = `<div class="muted">Carregando exames...</div>`;
 		try {
 			const exames = await fetchExamesByPacienteId(pacienteId);
@@ -1442,25 +1543,38 @@ function renderMedicoPaciente() {
 				container.innerHTML = `<div class="muted">Nenhum exame enviado.</div>`;
 				return;
 			}
-			container.innerHTML = exames.map(e => `
-        <div class="item">
-          <div class="item__top">
-            <div>
-              <p class="item__title">Exame</p>
-              <div class="item__meta">${escapeHTML(e.enviadoEm ? new Date(e.enviadoEm).toLocaleString() : "")}</div>
-            </div>
-            <span class="badge">exame</span>
-          </div>
-          <div class="hr"></div>
-          <button class="btn btn--ghost" type="button"
-            data-dl-exame="${e.id}" data-name="${escapeAttr(e.nomeOriginal || "arquivo")}">
-            📎 ${escapeHTML(e.nomeOriginal || "arquivo")}
-          </button>
-        </div>
-      `).join("");
+
+			container.innerHTML = exames.map(e => {
+			  const enviado = e.enviadoEm ? new Date(e.enviadoEm).toLocaleString() : "";
+			  const nome = e.nomeOriginal || "arquivo";
+			  const desc = String(e.descricao || "").trim();
+
+			  return `
+			    <div class="item">
+			      <div class="item__top">
+			        <div>
+			          <p class="item__title">Exame</p>
+			          <div class="item__meta">${escapeHTML(enviado)}</div>
+			        </div>
+			        <span class="badge">exame</span>
+			      </div>
+
+			      ${desc ? `
+			        <div class="muted" style="margin-top:6px;">Descrição</div>
+			        <div class="mp-examDesc">${escapeHTML(desc)}</div>
+			      ` : ""}
+
+			      <div class="hr"></div>
+			      <button class="btn btn--ghost" type="button"
+			        data-dl-exame="${e.id}" data-name="${escapeAttr(nome)}">
+			        📎 ${escapeHTML(nome)}
+			      </button>
+			    </div>
+			  `;
+			}).join("");
 
 			$$('[data-dl-exame]', container).forEach(btn => {
-				btn.addEventListener('click', async () => {
+				btn.addEventListener("click", async () => {
 					await downloadExame(btn.dataset.dlExame, btn.dataset.name || "arquivo");
 				});
 			});
@@ -1469,8 +1583,7 @@ function renderMedicoPaciente() {
 		}
 	}
 
-	async function renderHistorico() {
-		const container = $("#mpPaneHistorico");
+	async function renderHistoricoInto(container) {
 		container.innerHTML = `<div class="muted">Carregando histórico...</div>`;
 		try {
 			const historicos = await fetchHistoricosByPacienteId(pacienteId);
@@ -1478,6 +1591,7 @@ function renderMedicoPaciente() {
 				container.innerHTML = `<div class="muted">Nenhum histórico cadastrado.</div>`;
 				return;
 			}
+
 			container.innerHTML = historicos.map(h => `
         <div class="item">
           <div class="item__top">
@@ -1496,75 +1610,59 @@ function renderMedicoPaciente() {
 		}
 	}
 
-	async function ensureChatAndRender() {
-		const pane = $("#mpPaneChat");
-		pane.innerHTML = `<div class="muted">Carregando chat...</div>`;
-		try {
-			const chatId = await startChat(pacienteId); // médico inicia/garante chat
+	async function openPanel(type) {
+		panelOpen = true;
+		panelType = type;
+		updateActiveButtons();
 
-			pane.innerHTML = `
-        <div class="muted" style="margin-bottom:10px;">
-          Para a paciente você aparece como <strong>Médico(a)</strong>.
-        </div>
-        <div class="card card--flat" style="margin:0;">
-          <div class="card__body">
-            <div id="mpMsgList" class="list" style="max-height:360px; overflow:auto;"></div>
-            <div class="hr"></div>
-            <form id="mpMsgForm" class="row" style="gap:10px; align-items:flex-end;">
-              <div class="field" style="flex:1;">
-                <label>Mensagem</label>
-                <input id="mpMsgText" required />
-              </div>
-              <button class="btn" type="submit">Enviar</button>
-              <a class="btn btn--ghost" href="Chat.html?chatId=${chatId}">Tela cheia</a>
-            </form>
-          </div>
-        </div>
-      `;
+		if (isMobile()) openDrawer();
 
-			async function loadMsgs() {
-				const list = $("#mpMsgList");
-				const msgs = await fetchChatMessages(chatId);
-				list.innerHTML = (msgs || []).map(m => `
-          <div class="item">
-            <div class="item__top">
-              <div>
-                <p class="item__title">${escapeHTML(m.sender === "MEDICO" ? "Você" : "Paciente")}</p>
-                <div class="item__meta">${escapeHTML(m.enviadoEm ? new Date(m.enviadoEm).toLocaleString() : "")}</div>
-              </div>
-              <span class="badge">msg</span>
-            </div>
-            <div class="hr"></div>
-            <div>${escapeHTML(m.texto || "")}</div>
-          </div>
-        `).join("") || `<div class="muted">Nenhuma mensagem.</div>`;
-				list.scrollTop = list.scrollHeight;
-			}
-
-			await loadMsgs();
-
-			$("#mpMsgForm").addEventListener("submit", async (e) => {
-				e.preventDefault();
-				const txt = $("#mpMsgText").value.trim();
-				if (!txt) return;
-				await sendChatMessage(chatId, txt);
-				$("#mpMsgText").value = "";
-				await loadMsgs();
-			});
-
-		} catch (err) {
-			pane.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+		const content = $("#mpSideContent");
+		if (type === "exames") {
+			showPanel("Exames");
+			await renderExamesInto(content);
+		} else {
+			showPanel("Histórico familiar");
+			await renderHistoricoInto(content);
 		}
 	}
 
-	$("#mpTabExames").addEventListener("click", () => { setTab("exames"); renderExames(); });
-	$("#mpTabHistorico").addEventListener("click", () => { setTab("historico"); renderHistorico(); });
-	$("#mpTabChat").addEventListener("click", () => { setTab("chat"); ensureChatAndRender(); });
+	function closePanel() {
+		panelOpen = false;
+		panelType = null;
+		updateActiveButtons();
+		hidePanel();
+	}
 
+	async function togglePanel(type) {
+		// Clique no mesmo botão => fecha
+		if (panelOpen && panelType === type) {
+			closePanel();
+			return;
+		}
+		// Clique no outro => troca conteúdo
+		await openPanel(type);
+	}
+
+	$("#mpToggleExames").addEventListener("click", () => togglePanel("exames"));
+	$("#mpToggleHistorico").addEventListener("click", () => togglePanel("historico"));
+
+	// Drawer mobile
+	$("#mpDrawerOpen").addEventListener("click", openDrawer);
+	$("#mpDrawerClose").addEventListener("click", closeDrawer);
+
+	// Fecha drawer ao redimensionar para desktop
+	window.addEventListener("resize", () => {
+		if (!isMobile()) closeDrawer();
+	});
+
+	// Inicializa
 	renderTop();
-	setTab("exames");
-	renderExames();
+	initChat();
+	closePanel(); // começa fechado
 }
+
+
 
 
 
