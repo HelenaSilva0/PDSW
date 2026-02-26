@@ -188,6 +188,12 @@ a:hover {
 	background: rgba(255, 77, 166, .08);
 }
 
+.btn.is-active{
+  border-color: rgba(255,77,166,.75);
+  background: rgba(255,77,166,.10);
+  box-shadow: var(--focus);
+}
+
 .btn--block {
 	width: 100%;
 }

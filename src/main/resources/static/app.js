@@ -1,5 +1,7 @@
 /* Viva Mama - Front multi páginas (Spring + JWT)
-
+   Versão com:
+   - Médico: ranking + filtros na lista de pacientes (medico.html)
+   - Médico: nova opção no header "Meus pacientes" (Chat.html), ordenados por nº de mensagens
 */
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -133,7 +135,6 @@ function historicoTextoParaHtml(textoHistorico) {
   `;
 }
 
-
 function goPanelByRole(role) {
 	const r = normalizeRole(role);
 	window.location.href = r === "PACIENTE" ? "paciente.html" : "medico.html";
@@ -142,10 +143,6 @@ function goPanelByRole(role) {
 function qs(name) {
 	const url = new URL(window.location.href);
 	return url.searchParams.get(name);
-}
-
-function isRedirectStatus(code) {
-	return [301, 302, 303, 307, 308].includes(Number(code));
 }
 
 function extractServerMessage(err) {
@@ -186,7 +183,6 @@ function inferFriendlyError(err) {
 	return msg || "Erro inesperado.";
 }
 
-
 function handleAuthFailure(err) {
 	const status = err?.status;
 	const msg = String(err?.message || "");
@@ -200,8 +196,7 @@ function handleAuthFailure(err) {
 	return false;
 }
 
-
-/* ---------------- Fetch com JWT + redirect ---------------- */
+/* ---------------- Fetch com JWT ---------------- */
 async function apiFetch(path, options = {}) {
 	const token = getToken();
 
@@ -336,7 +331,7 @@ async function downloadHistoricoAnexo(anexoId, nomeOriginal) {
 	setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/* ---------------- Exames (upload separado) ---------------- */
+/* ---------------- Exames / Chat ---------------- */
 async function fetchExamesByPacienteId(idPaciente) {
 	return apiFetch(`/exames/paciente/${idPaciente}`, { method: "GET" });
 }
@@ -396,7 +391,6 @@ async function downloadExame(exameId, nomeOriginal) {
 	setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-
 /* ---------------- Layout ---------------- */
 function logoSVG() {
 	return `
@@ -418,11 +412,9 @@ function buildLayout(page) {
 	const role = normalizeRole(meta.role || "");
 	const painelHref = logged ? (role === "PACIENTE" ? "paciente.html" : "medico.html") : "#";
 
-
 	const showHistoricoMenu = logged && role === "PACIENTE";
 	const showExamesMenu = logged && role === "PACIENTE";
 	const showChatMenu = logged && role === "PACIENTE";
-
 
 	const perfilLabel = role === "PACIENTE" ? "Paciente" : (role === "MEDICO" ? "Médico(a)" : "");
 
@@ -441,10 +433,9 @@ function buildLayout(page) {
           <a class="nav__link" href="index.html">Início</a>
           <a class="nav__link" id="navCadastro" href="cadastro.html" ${logged ? "hidden" : ""}>Cadastro</a>
 
-		  <a class="nav__link" id="navHistorico" href="HistoricoFamiliar.html" ${showHistoricoMenu ? "" : "hidden"}>Histórico Familiar</a>
-		  <a class="nav__link" id="navExames" href="Exames.html" ${showExamesMenu ? "" : "hidden"}>Exames</a>
-		  <a class="nav__link" id="navChat" href="Chat.html" ${showChatMenu ? "" : "hidden"}>Chat</a>
-
+          <a class="nav__link" id="navHistorico" href="HistoricoFamiliar.html" ${showHistoricoMenu ? "" : "hidden"}>Histórico Familiar</a>
+          <a class="nav__link" id="navExames" href="Exames.html" ${showExamesMenu ? "" : "hidden"}>Exames</a>
+          <a class="nav__link" id="navChat" href="Chat.html" ${showChatMenu ? "" : "hidden"}>Chat</a>
           <a class="nav__link" id="navPainel" href="${painelHref}" ${logged ? "" : "hidden"}>Painel</a>
 
           <span class="badge" id="navPerfil" ${logged ? "" : "hidden"}>Área de <strong>${escapeHTML(perfilLabel)}</strong></span>
@@ -631,7 +622,6 @@ function renderCadastro() {
                 <div class="field">
                   <label>Gênero</label>
                   <select id="pGenero">
-                    <option value="N">Não informado</option>
                     <option value="F">Feminino</option>
                     <option value="M">Masculino</option>
                     <option value="O">Outro</option>
@@ -677,7 +667,6 @@ function renderCadastro() {
 	const camposPaciente = $("#camposPaciente");
 	const camposMedico = $("#camposMedico");
 
-	// ✅ Corrige "required escondido" travando submit:
 	function setGroupActive(groupEl, active) {
 		groupEl.hidden = !active;
 		$$("input, select, textarea", groupEl).forEach(el => {
@@ -700,7 +689,7 @@ function renderCadastro() {
 	}
 
 	cadTipo.addEventListener("change", () => applyTipo(cadTipo.value));
-	applyTipo(cadTipo.value); // estado inicial
+	applyTipo(cadTipo.value);
 
 	$("#cadIrLogin").addEventListener("click", (e) => {
 		e.preventDefault();
@@ -719,7 +708,6 @@ function renderCadastro() {
 		if (!telefone) return toast("Telefone é obrigatório.");
 
 		try {
-			// registra
 			const regPayload = { email, senha, telefone, role };
 
 			if (role === "PACIENTE") {
@@ -737,11 +725,9 @@ function renderCadastro() {
 
 			await registerUser(regPayload);
 
-			// loga automaticamente (requisito #1)
 			const auth = await loginUser(email, senha);
 			const r = normalizeRole(auth.role);
 
-			// cria perfil
 			if (r === "PACIENTE") {
 				const nome = $("#pNome").value.trim();
 				if (!nome) return toast("Nome é obrigatório.");
@@ -876,41 +862,52 @@ function renderPaciente() {
 	loadMe();
 }
 
+/* -------- Chat/Meus pacientes (mesma página Chat.html) -------- */
 function renderChatHub() {
+
 	const meta = getUserMeta();
 	const role = normalizeRole(meta.role || "");
 	if (!meta.token) return (toast("Faça login."), setTimeout(() => location.href = "index.html", 250));
 
+	if (role === "MEDICO") {
+		toast("Acesse um paciente e use o chat por lá.");
+		return setTimeout(() => (location.href = "medico.html"), 250);
+	}
+	
+	if (!meta.token) return (toast("Faça login."), setTimeout(() => location.href = "index.html", 250));
+
+	const isMedico = role === "MEDICO";
+
 	const root = $("#pageRoot");
 	root.innerHTML = `
-	    <div class="page-center">
-	      <div class="card">
-	        <div class="card__header">
-	          <h2 class="card__title">Chat</h2>
-	          <p class="card__subtitle">Conversas.</p>
-	        </div>
+    <div class="page-center">
+      <div class="card">
+        <div class="card__header">
+          <h2 class="card__title">${isMedico ? "Meus pacientes" : "Chat"}</h2>
+          <p class="card__subtitle">${isMedico ? "Pacientes com conversa iniciada, ordenados por mensagens." : "Conversas."}</p>
+        </div>
 
-	        <div class="card__body">
-	          <div class="chat-wrap">
-	            <div class="chat-list" id="chatList">
-	              <div class="muted">Carregando chats...</div>
-	            </div>
+        <div class="card__body">
+          <div class="chat-wrap">
+            <div class="chat-list" id="chatList">
+              <div class="muted">Carregando chats...</div>
+            </div>
 
-	            <div class="chat-thread">
-	              <div class="chat-messages" id="chatMsgs">
-	                <div class="muted">Selecione uma conversa.</div>
-	              </div>
+            <div class="chat-thread">
+              <div class="chat-messages" id="chatMsgs">
+                <div class="muted">Selecione uma conversa.</div>
+              </div>
 
-	              <form class="chat-input" id="chatForm">
-	                <input id="chatText" placeholder="Digite sua mensagem..." required />
-	                <button class="btn" type="submit">Enviar</button>
-	              </form>
-	            </div>
-	          </div>
-	        </div>
-	      </div>
-	    </div>
-	  `;
+              <form class="chat-input" id="chatForm">
+                <input id="chatText" placeholder="Digite sua mensagem..." required />
+                <button class="btn" type="submit">Enviar</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
 
 	let currentChatId = null;
 	let pollTimer = null;
@@ -929,11 +926,11 @@ function renderChatHub() {
 		box.innerHTML = (msgs || []).map(m => {
 			const mine = m.sender === meSender;
 			return `
-	        <div class="bubble ${mine ? "bubble--me" : "bubble--other"}">
-	          <div class="bubble__text">${escapeHTML(m.texto || "")}</div>
-	          <div class="bubble__meta">${escapeHTML(m.enviadoEm ? new Date(m.enviadoEm).toLocaleString() : "")}</div>
-	        </div>
-	      `;
+        <div class="bubble ${mine ? "bubble--me" : "bubble--other"}">
+          <div class="bubble__text">${escapeHTML(m.texto || "")}</div>
+          <div class="bubble__meta">${escapeHTML(m.enviadoEm ? new Date(m.enviadoEm).toLocaleString() : "")}</div>
+        </div>
+      `;
 		}).join("") || `<div class="muted">Nenhuma mensagem.</div>`;
 
 		box.scrollTop = box.scrollHeight;
@@ -952,11 +949,50 @@ function renderChatHub() {
 	async function loadChats() {
 		const listBox = $("#chatList");
 		try {
-			const chats = await fetchChats();
+			let chats = await fetchChats();
 
 			if (!Array.isArray(chats) || chats.length === 0) {
 				listBox.innerHTML = `<div class="muted">Nenhuma conversa ainda.</div>`;
 				return;
+			}
+
+			// ✅ Médico: ordena por quantidade de mensagens (fallback se API não retorna contagem)
+			if (isMedico && chats.length) {
+				const enriched = await Promise.all(chats.map(async (c) => {
+					let count = c.messagesCount ?? c.mensagensCount ?? c.qtdMensagens;
+					let lastAt = c.lastMessageAt ?? c.ultimaMensagemEm;
+
+					if (count == null || lastAt == null) {
+						try {
+							const msgs = await fetchChatMessages(c.chatId);
+							const arr = Array.isArray(msgs) ? msgs : [];
+							if (count == null) count = arr.length;
+
+							if (lastAt == null && arr.length) {
+								const maxTs = arr.reduce((max, m) => {
+									const t = m?.enviadoEm ? new Date(m.enviadoEm).getTime() : 0;
+									return Math.max(max, t);
+								}, 0);
+								lastAt = maxTs ? new Date(maxTs).toISOString() : null;
+							}
+						} catch {
+							count = count ?? 0;
+							lastAt = lastAt ?? null;
+						}
+					}
+
+					return { ...c, __count: Number(count) || 0, __lastAt: lastAt };
+				}));
+
+				enriched.sort((a, b) => {
+					const dc = (b.__count - a.__count);
+					if (dc !== 0) return dc;
+					const ta = (a.__lastAt ? new Date(a.__lastAt).getTime() : 0);
+					const tb = (b.__lastAt ? new Date(b.__lastAt).getTime() : 0);
+					return tb - ta;
+				});
+
+				chats = enriched;
 			}
 
 			listBox.innerHTML = chats.map(c => {
@@ -965,14 +1001,16 @@ function renderChatHub() {
 						? (c.medicoLabel || "Médico(a)")
 						: (c.pacienteNome || "Paciente");
 
-				const sub = c.criadoEm ? new Date(c.criadoEm).toLocaleString() : "";
+				const sub = isMedico
+					? `${(c.__count ?? c.messagesCount ?? 0)} mensagens`
+					: (c.criadoEm ? new Date(c.criadoEm).toLocaleString() : "");
 
 				return `
-	          <button class="chat-item" type="button" data-chat-id="${c.chatId}">
-	            <div class="chat-item__title">${escapeHTML(title)}</div>
-	            <div class="chat-item__meta">${escapeHTML(sub)}</div>
-	          </button>
-	        `;
+          <button class="chat-item" type="button" data-chat-id="${c.chatId}">
+            <div class="chat-item__title">${escapeHTML(title)}</div>
+            <div class="chat-item__meta">${escapeHTML(sub)}</div>
+          </button>
+        `;
 			}).join("");
 
 			$$(".chat-item", listBox).forEach(btn => {
@@ -986,9 +1024,6 @@ function renderChatHub() {
 			const qChatId = Number(new URLSearchParams(location.search).get("chatId") || 0);
 			const firstId = qChatId || Number(chats[0].chatId);
 
-
-			// auto-abrir o primeiro chat
-			//const firstId = Number(chats[0].chatId);
 			const firstBtn = listBox.querySelector(`[data-chat-id="${firstId}"]`);
 			if (firstBtn) firstBtn.classList.add("chat-item--active");
 			await selectChat(firstId);
@@ -1015,15 +1050,11 @@ function renderChatHub() {
 		}
 	});
 
-	// carregar tudo
 	loadChats();
-
-	// quando sair da página, parar polling (opcional)
 	window.addEventListener("beforeunload", stopPoll);
 }
 
-
-//* -------- Médico (lista + detalhes + histórico + exames dentro de detalhes) -------- */
+/* -------- Médico (lista pacientes com ranking + filtros) -------- */
 function renderMedico() {
 	const meta = getUserMeta();
 	const role = normalizeRole(meta.role || "");
@@ -1038,33 +1069,95 @@ function renderMedico() {
 
 	const root = $("#pageRoot");
 	root.innerHTML = `
-	<div class="page-center">
-	    <div class="card">
-	      <div class="card__header">
-	        <h2 class="card__title">Pacientes cadastrados</h2>
-	        <p class="card__subtitle">Busque e abra um paciente para ver histórico familiar, exames e chat.</p>
-	      </div>
-	      <div class="card__body">
-	        <div class="row">
-	          <div class="field" style="flex:1;">
-	            <label>Buscar</label>
-	            <input id="mBusca" placeholder="nome..." />
-	          </div>
-	          <div class="field" style="width:220px;">
-	            <label>&nbsp;</label>
-	            <button class="btn btn--ghost" id="btnReloadPacientes" type="button">Recarregar</button>
-	          </div>
-	        </div>
-	        <div class="hr"></div>
-	        <div id="mLista" class="list">
-	          <div class="muted">Carregando...</div>
-	        </div>
-	      </div>
-	    </div>
-	  </div>
-	`;
+  <div class="page-center">
+    <div class="card">
+      <div class="card__header">
+        <h2 class="card__title">Pacientes cadastrados</h2>
+        <p class="card__subtitle">Busque e abra um paciente para ver histórico familiar, exames e chat.</p>
+      </div>
+      <div class="card__body">
 
-	const state = { pacientes: [], selectedPacienteId: null };
+        <div class="row">
+          <div class="field" style="flex:1;">
+            <label>Buscar</label>
+            <input id="mBusca" placeholder="nome..." />
+          </div>
+          <div class="field" style="width:220px;">
+            <label>&nbsp;</label>
+            <button class="btn btn--ghost" id="btnReloadPacientes" type="button">Recarregar</button>
+          </div>
+        </div>
+
+        <!-- ✅ Ranking + filtros (sessão da imagem) -->
+        <div class="row" style="margin-top:10px; flex-wrap:wrap;">
+          <div class="field" style="width:240px;">
+            <label>Ordenar (ranking)</label>
+            <select id="mOrdenar">
+              <option value="nome_asc">Nome (A–Z)</option>
+              <option value="nome_desc">Nome (Z–A)</option>
+              <option value="idade_desc">Idade (maior primeiro)</option>
+              <option value="idade_asc">Idade (menor primeiro)</option>
+            </select>
+          </div>
+
+          <div class="field" style="width:220px;">
+            <label>Filtro: Gênero</label>
+            <select id="mFiltroGenero">
+              <option value="TODOS">Todos</option>
+              <option value="F">Feminino</option>
+              <option value="M">Masculino</option>
+              <option value="O">Outro</option>     
+            </select>
+          </div>
+
+          <div class="field" style="width:220px;">
+            <label>Filtro: Faixa etária</label>
+            <select id="mFiltroIdade">
+              <option value="TODOS">Todas</option>
+              <option value="0-29">Até 29</option>
+              <option value="30-39">30–39</option>
+              <option value="40-49">40–49</option>
+              <option value="50+">50+</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+        <div id="mLista" class="list">
+          <div class="muted">Carregando...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  `;
+
+	const state = {
+		pacientes: [],
+		sort: "nome_asc",
+		filtroGenero: "TODOS",
+		filtroIdade: "TODOS",
+	};
+
+	function calcAge(dateStr) {
+		if (!dateStr) return null;
+		const d = new Date(dateStr);
+		if (Number.isNaN(d.getTime())) return null;
+		const now = new Date();
+		let age = now.getFullYear() - d.getFullYear();
+		const m = now.getMonth() - d.getMonth();
+		if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+		return age >= 0 && age < 130 ? age : null;
+	}
+
+	function inAgeFilter(age, filtro) {
+		if (filtro === "TODOS") return true;
+		if (age == null) return false;
+		if (filtro === "0-29") return age <= 29;
+		if (filtro === "30-39") return age >= 30 && age <= 39;
+		if (filtro === "40-49") return age >= 40 && age <= 49;
+		if (filtro === "50+") return age >= 50;
+		return true;
+	}
 
 	async function loadPacientes() {
 		const list = $("#mLista");
@@ -1081,34 +1174,62 @@ function renderMedico() {
 	function renderLista() {
 		const list = $("#mLista");
 		const q = ($("#mBusca").value || "").trim().toLowerCase();
+		const collator = new Intl.Collator("pt-BR", { sensitivity: "base" });
 
-		const filtered = state.pacientes.filter(p => {
+		let arr = (state.pacientes || []).map(p => {
+			const idade = calcAge(p.dataNascimento);
+			const gen = normalizeGeneroChar(p.genero);
+			return { ...p, __idade: idade, __gen: gen };
+		});
+
+		// busca por nome
+		arr = arr.filter(p => {
 			const nome = String(p.nome || "").toLowerCase();
 			return !q || nome.includes(q);
 		});
 
-		list.innerHTML = filtered.length
-			? filtered.map(p => `
-        <div class="item">
-          <div class="item__top">
-            <div>
-              <p class="item__title">${escapeHTML(p.nome || "Paciente")}</p>
-            </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <button class="btn btn--ghost" data-open="${p.idPaciente}">Abrir</button>
+		// filtro gênero
+		if (state.filtroGenero !== "TODOS") {
+			arr = arr.filter(p => p.__gen === state.filtroGenero);
+		}
+
+		// filtro idade
+		arr = arr.filter(p => inAgeFilter(p.__idade, state.filtroIdade));
+
+		// ranking/ordenação
+		arr.sort((a, b) => {
+			if (state.sort === "nome_asc") return collator.compare(a.nome || "", b.nome || "");
+			if (state.sort === "nome_desc") return collator.compare(b.nome || "", a.nome || "");
+
+			// idade: null vai pro fim
+			const ai = (a.__idade == null) ? -1 : a.__idade;
+			const bi = (b.__idade == null) ? -1 : b.__idade;
+
+			if (state.sort === "idade_desc") return (bi - ai);
+			if (state.sort === "idade_asc") return (ai - bi);
+
+			return 0;
+		});
+
+		list.innerHTML = arr.length
+			? arr.map(p => {
+				const idadeTxt = p.__idade != null ? ` • ${p.__idade} anos` : "";
+				const genTxt = generoLabel(p.__gen);
+				return `
+          <div class="item">
+            <div class="item__top">
+              <div>
+                <p class="item__title">${escapeHTML(p.nome || "Paciente")}</p>
+                <div class="item__meta">${escapeHTML(genTxt + idadeTxt)}</div>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn btn--ghost" data-open="${p.idPaciente}">Abrir</button>
+              </div>
             </div>
           </div>
-        </div>
-      `).join("")
-			: `
-        <div class="muted">
-          Nenhum paciente encontrado.
-          <div style="margin-top:8px;">
-            <strong>Dica:</strong> isso costuma acontecer quando nenhum perfil de paciente foi criado no backend
-            (<code>POST /profiles/paciente</code>).
-          </div>
-        </div>
-      `;
+        `;
+			}).join("")
+			: `<div class="muted">Nenhum paciente encontrado.</div>`;
 
 		$$("[data-open]", list).forEach(btn => {
 			btn.addEventListener("click", () => {
@@ -1119,243 +1240,37 @@ function renderMedico() {
 		});
 	}
 
-	// Helper para renderizar um card de histórico
-	function renderHistoricoItem(h) {
-		const versao = (h.versao != null) ? `v${h.versao}` : "—";
-		const criado = h.criadoEm ? new Date(h.criadoEm).toLocaleString() : "";
-		const textoHtml = historicoTextoParaHtml(h.textoHistorico);
-		const anexos = Array.isArray(h.anexos) ? h.anexos : [];
-
-		const anexosHtml = anexos.length ? anexos.map(a => {
-			const nome = a.nomeOriginal || `anexo-${a.id}`;
-			return `
-        <div>
-          <button class="btn btn--ghost" type="button"
-                  data-dl-hf="${a.id}" data-name="${escapeAttr(nome)}">
-            📎 ${escapeHTML(nome)}
-          </button>
-        </div>
-      `;
-		}).join("") : "";
-
-		return `
-      <div class="item">
-        <div class="item__top">
-          <div>
-            <p class="item__title">Histórico ${escapeHTML(versao)}</p>
-            <div class="item__meta">${criado ? escapeHTML(criado) : ""}</div>
-          </div>
-          <span class="badge">histórico</span>
-        </div>
-        <div class="hr"></div>
-        <div>${textoHtml}</div>
-        ${anexosHtml ? `<div class="hr"></div><div>${anexosHtml}</div>` : ""}
-      </div>
-    `;
-	}
-
-	function bindHistoricoDownloads(rootEl) {
-		if (!rootEl) return;
-		$$('[data-dl-hf]', rootEl).forEach(btn => {
-			btn.addEventListener("click", async () => {
-				const anexoId = btn.dataset.dlHf;
-				const nome = btn.dataset.name || "arquivo";
-				try {
-					await downloadHistoricoAnexo(anexoId, nome);
-				} catch (err) {
-					toast(inferFriendlyError(err));
-				}
-			});
-		});
-	}
-
-	function renderHistoricoInDetails(pacienteId) {
-		const latestBox = $("#mHistoricoLatest");
-		const prevBox = $("#mHistoricoPrev");
-		const btnPrev = $("#btnMhfPrev");
-
-		if (!latestBox) return;
-
-		latestBox.innerHTML = `<div class="muted">Carregando histórico...</div>`;
-		if (prevBox) { prevBox.classList.add("vm-hidden"); prevBox.innerHTML = ""; }
-		if (btnPrev) { btnPrev.disabled = true; btnPrev.textContent = "Exibir histórico familiar anterior"; }
-
-		(async () => {
-			try {
-				const historicos = await fetchHistoricosByPacienteId(pacienteId);
-
-				if (!Array.isArray(historicos) || historicos.length === 0) {
-					latestBox.innerHTML = `<div class="muted">Nenhum histórico familiar cadastrado.</div>`;
-					return;
-				}
-
-				const latest = historicos[0];
-				const anteriores = historicos.slice(1);
-
-				latestBox.innerHTML = renderHistoricoItem(latest);
-				bindHistoricoDownloads(latestBox);
-
-				if (prevBox) {
-					prevBox.innerHTML = anteriores.length
-						? anteriores.map(renderHistoricoItem).join("")
-						: `<div class="muted">Não há versões anteriores.</div>`;
-					prevBox.classList.add("vm-hidden");
-					bindHistoricoDownloads(prevBox);
-				}
-
-				if (btnPrev) {
-					btnPrev.disabled = anteriores.length === 0;
-					btnPrev.onclick = () => {
-						if (!prevBox) return;
-						const abrir = prevBox.classList.contains("vm-hidden");
-						prevBox.classList.toggle("vm-hidden", !abrir);
-						btnPrev.textContent = abrir
-							? "Ocultar histórico familiar anterior"
-							: "Exibir histórico familiar anterior";
-					};
-				}
-
-			} catch (err) {
-				latestBox.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-			}
-		})();
-	}
-
-	function renderExamesInDetails(pacienteId) {
-		const container = $("#mExamesBox");
-		if (!container) return;
-
-		container.innerHTML = `<div class="muted">Carregando exames...</div>`;
-
-		(async () => {
-			try {
-				const exames = await fetchExamesByPacienteId(pacienteId);
-
-				if (!Array.isArray(exames) || exames.length === 0) {
-					container.innerHTML = `<div class="muted">Nenhum exame enviado pelo paciente.</div>`;
-					return;
-				}
-
-				container.innerHTML = exames.map(e => {
-					const enviado = e.enviadoEm ? new Date(e.enviadoEm).toLocaleString() : "";
-					const nome = e.nomeOriginal || "arquivo";
-					const desc = String(e.descricao || e.description || "").trim(); // fallback caso venha outro nome
-
-					return `
-				    <div class="item">
-				      <div class="item__top">
-				        <div>
-				          <p class="item__title">Exame</p>
-				          <div class="item__meta">${escapeHTML(enviado)}</div>
-				        </div>
-				        <span class="badge">exame</span>
-				      </div>
-
-				      ${desc ? `
-				        <div class="muted" style="margin-top:6px;">Descrição</div>
-				        <div class="mp-examDesc">${escapeHTML(desc)}</div>
-				      ` : ""}
-
-				      <div class="hr"></div>
-				      <button class="btn btn--ghost" type="button"
-				        data-dl-exame="${e.id}" data-name="${escapeAttr(nome)}">
-				        📎 ${escapeHTML(nome)}
-				      </button>
-				    </div>
-				  `;
-				}).join("");
-
-				$$('[data-dl-exame]', container).forEach(btn => {
-					btn.addEventListener('click', async () => {
-						const exameId = btn.dataset.dlExame;
-						const nome = btn.dataset.name || "arquivo";
-						try {
-							await downloadExame(exameId, nome);
-						} catch (err) {
-							toast(inferFriendlyError(err));
-						}
-					});
-				});
-
-			} catch (err) {
-				container.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-			}
-		})();
-	}
-
-	async function renderDetalhes(id) {
-		$("#mSub").textContent = "Carregando...";
-		$("#mDetalhes").innerHTML = `<div class="muted">Carregando...</div>`;
-
-		try {
-			const p = await fetchPacienteById(id);
-			$("#mSub").textContent = `${p.nome || "Paciente"}`;
-
-			const g = generoLabel(p.genero);
-
-			$("#mDetalhes").innerHTML = `
-        <div class="item">
-          <div class="muted">Nome</div><div>${escapeHTML(p.nome || "—")}</div>
-          <div class="hr"></div>
-          <div class="muted">Nascimento</div><div>${escapeHTML(p.dataNascimento || "—")}</div>
-          <div class="hr"></div>
-          <div class="muted">Gênero</div><div>${escapeHTML(g)}</div>
-          <div class="hr"></div>
-          <div class="muted">Observações</div><div>${escapeHTML(p.observacoes || "—")}</div>
-        </div>
-
-		<div class="hr"></div>
-		<div class="badge">Histórico Familiar do paciente</div>
-		<div class="muted" style="margin:8px 0;">
-		  Mostrando a versão mais recente. Use o botão para ver versões anteriores.
-		</div>
-
-		<div id="mHistoricoLatest" class="list">
-		  <div class="muted">Carregando histórico...</div>
-		</div>
-
-		<div class="row" style="align-items:flex-start; gap:10px; flex-wrap:wrap; margin-top:10px;">
-		  <button class="btn btn--ghost" type="button" id="btnMhfPrev">Exibir histórico familiar anterior</button>
-		</div>
-
-		<div id="mHistoricoPrev" class="list vm-hidden"></div>
-
-        <div class="hr"></div>
-        <div class="badge">Exames anexados</div>
-        <div class="muted" style="margin:8px 0;">
-          Exames enviados pelo paciente (com descrição).
-        </div>
-        <div id="mExamesBox" class="list">
-          <div class="muted">Carregando exames...</div>
-        </div>
-      `;
-
-			renderHistoricoInDetails(id);
-			renderExamesInDetails(id);
-
-		} catch (err) {
-			$("#mSub").textContent = "Erro";
-			$("#mDetalhes").innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-		}
-	}
-
 	$("#mBusca").addEventListener("input", renderLista);
 	$("#btnReloadPacientes").addEventListener("click", loadPacientes);
+
+	$("#mOrdenar").addEventListener("change", (e) => {
+		state.sort = e.target.value;
+		renderLista();
+	});
+	$("#mFiltroGenero").addEventListener("change", (e) => {
+		state.filtroGenero = e.target.value;
+		renderLista();
+	});
+	$("#mFiltroIdade").addEventListener("change", (e) => {
+		state.filtroIdade = e.target.value;
+		renderLista();
+	});
 
 	loadPacientes();
 }
 
+/* -------- Médico Paciente (chat + drawer exames/histórico) -------- */
 function renderMedicoPaciente() {
-	const meta = getUserMeta();
-	const role = normalizeRole(meta.role || "");
-	if (!meta.token) return (toast("Faça login."), setTimeout(() => location.href = "index.html", 250));
-	if (role !== "MEDICO") return (toast("Acesso restrito."), setTimeout(() => location.href = "index.html", 250));
+  const meta = getUserMeta();
+  const role = normalizeRole(meta.role || "");
+  if (!meta.token) return (toast("Faça login."), setTimeout(() => location.href = "index.html", 250));
+  if (role !== "MEDICO") return (toast("Acesso restrito."), setTimeout(() => location.href = "index.html", 250));
 
-	const pacienteId = Number(qs("pacienteId"));
-	if (!pacienteId) return (toast("Paciente inválido."), setTimeout(() => location.href = "medico.html", 250));
+  const pacienteId = Number(qs("pacienteId"));
+  if (!pacienteId) return (toast("Paciente inválido."), setTimeout(() => location.href = "medico.html", 250));
 
-	const root = $("#pageRoot");
-	root.innerHTML = `
+  const root = $("#pageRoot");
+  root.innerHTML = `
     <div class="mp-shell">
       <!-- ESQUERDA: detalhes do paciente -->
       <aside class="mp-left">
@@ -1381,7 +1296,7 @@ function renderMedicoPaciente() {
           <div class="card__body mp-mainBody">
             <div class="chat-thread">
               <div class="chat-messages" id="mpChatMsgs">
-                <div class="muted">Carregando mensagens...</div>
+                <div class="muted">Carregando...</div>
               </div>
 
               <form class="chat-input" id="mpChatForm">
@@ -1408,9 +1323,10 @@ function renderMedicoPaciente() {
 
           <div class="card__body">
             <div class="mp-actions">
+              <a class="btn btn--ghost" href="medico.html">← Voltar</a>
+              <button class="btn btn--ghost" type="button" id="mpToggleMyPatients">Meus pacientes</button>
               <button class="btn btn--ghost" type="button" id="mpToggleExames">Exames</button>
               <button class="btn btn--ghost" type="button" id="mpToggleHistorico">Histórico familiar</button>
-              <a class="btn btn--ghost" href="medico.html">← Voltar</a>
             </div>
 
             <div id="mpSidePanel" class="mp-sidePanel vm-hidden">
@@ -1418,25 +1334,23 @@ function renderMedicoPaciente() {
                 <div class="mp-sideTitle" id="mpSideTitle">Exames</div>
               </div>
               <div id="mpSideContent" class="list">
-                <!-- aqui entra exames/histórico -->
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Botão flutuante no mobile para abrir o drawer -->
         <button class="btn mp-drawerOpen" id="mpDrawerOpen" type="button">☰</button>
       </aside>
     </div>
   `;
 
-	/* ------------------ TOP (detalhes) ------------------ */
-	async function renderTop() {
-		try {
-			const p = await fetchPacienteById(pacienteId);
-			$("#mpSub").textContent = p.nome || "Paciente";
+  /* ------------------ TOP (detalhes) ------------------ */
+  async function renderTop() {
+    try {
+      const p = await fetchPacienteById(pacienteId);
+      $("#mpSub").textContent = p.nome || "Paciente";
 
-			$("#mpTop").innerHTML = `
+      $("#mpTop").innerHTML = `
         <div class="item">
           <div class="muted">Nome</div><div>${escapeHTML(p.nome || "—")}</div>
           <div class="hr"></div>
@@ -1445,154 +1359,218 @@ function renderMedicoPaciente() {
           <div class="muted">Observações</div><div>${escapeHTML(p.observacoes || "—")}</div>
         </div>
       `;
-		} catch (err) {
-			$("#mpSub").textContent = "Erro";
-			$("#mpTop").innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-		}
-	}
+    } catch (err) {
+      $("#mpSub").textContent = "Erro";
+      $("#mpTop").innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+    }
+  }
 
-	/* ------------------ CHAT (sempre visível + polling) ------------------ */
-	let chatId = null;
-	let pollTimer = null;
+  /* ------------------ CHAT (não cria conversa ao abrir) ------------------ */
+  let chatId = null;
+  let pollTimer = null;
 
-	function stopPoll() {
-		if (pollTimer) clearInterval(pollTimer);
-		pollTimer = null;
-	}
+  function stopPoll() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+  }
 
-	async function loadMsgs() {
-		const box = $("#mpChatMsgs");
-		const msgs = await fetchChatMessages(chatId);
+  function setEmptyChatHint() {
+    $("#mpChatMsgs").innerHTML = `
+      <div class="muted">
+        Nenhuma conversa iniciada ainda.<br/>
+        Envie a primeira mensagem para iniciar o atendimento.
+      </div>
+    `;
+  }
 
-		box.innerHTML = (msgs || []).map(m => {
-			const mine = m.sender === "MEDICO";
-			return `
+  function parseChatId(value) {
+    if (typeof value === "number") return value;
+    const n = Number(value?.chatId || value?.id || value);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function getPacienteIdFromChat(c) {
+    const pid =
+      c?.pacienteId ??
+      c?.idPaciente ??
+      c?.paciente?.idPaciente ??
+      c?.paciente?.id ??
+      c?.pacienteID;
+    const n = Number(pid);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  async function findExistingChatIdForPaciente() {
+    try {
+      const chats = await fetchChats();
+      if (!Array.isArray(chats)) return null;
+
+      const found = chats.find(c => getPacienteIdFromChat(c) === pacienteId);
+      return found ? Number(found.chatId) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function loadMsgs() {
+    const box = $("#mpChatMsgs");
+    const msgs = await fetchChatMessages(chatId);
+
+    box.innerHTML = (msgs || []).map(m => {
+      const mine = m.sender === "MEDICO";
+      return `
         <div class="bubble ${mine ? "bubble--me" : "bubble--other"}">
           <div class="bubble__text">${escapeHTML(m.texto || "")}</div>
           <div class="bubble__meta">${escapeHTML(m.enviadoEm ? new Date(m.enviadoEm).toLocaleString() : "")}</div>
         </div>
       `;
-		}).join("") || `<div class="muted">Nenhuma mensagem.</div>`;
+    }).join("") || `<div class="muted">Nenhuma mensagem.</div>`;
 
-		box.scrollTop = box.scrollHeight;
-	}
+    box.scrollTop = box.scrollHeight;
+  }
 
-	async function initChat() {
-		try {
-			chatId = await startChat(pacienteId);
-			await loadMsgs();
+  function startPolling() {
+    stopPoll();
+    pollTimer = setInterval(() => {
+      if (chatId) loadMsgs().catch(() => {});
+    }, 3000);
+  }
 
-			stopPoll();
-			pollTimer = setInterval(() => {
-				if (chatId) loadMsgs().catch(() => { });
-			}, 3000);
+  async function initChat() {
+    // tenta achar chat existente (sem criar)
+    chatId = await findExistingChatIdForPaciente();
 
-			$("#mpChatForm").addEventListener("submit", async (e) => {
-				e.preventDefault();
-				const input = $("#mpChatText");
-				const txt = input.value.trim();
-				if (!txt) return;
+    if (chatId) {
+      try {
+        await loadMsgs();
+        startPolling();
+      } catch (err) {
+        $("#mpChatMsgs").innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+      }
+    } else {
+      setEmptyChatHint();
+    }
 
-				await sendChatMessage(chatId, txt);
-				input.value = "";
-				await loadMsgs();
-			});
+    $("#mpChatForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = $("#mpChatText");
+      const txt = input.value.trim();
+      if (!txt) return;
 
-			window.addEventListener("beforeunload", stopPoll);
-		} catch (err) {
-			$("#mpChatMsgs").innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-		}
-	}
+      try {
+        // ✅ só cria conversa no primeiro envio
+        if (!chatId) {
+          const started = await startChat(pacienteId);
+          chatId = parseChatId(started);
+          if (!chatId) throw new Error("Não consegui iniciar o chat.");
+          startPolling();
+        }
 
-	/* ------------------ PAINEL DIREITO (toggle) ------------------ */
-	let panelOpen = false;
-	let panelType = null; // "exames" | "historico" | null
+        await sendChatMessage(chatId, txt);
+        input.value = "";
+        await loadMsgs();
+      } catch (err) {
+        toast(inferFriendlyError(err));
+      }
+    });
 
-	function isMobile() {
-		return window.matchMedia("(max-width: 980px)").matches;
-	}
+    window.addEventListener("beforeunload", stopPoll);
+  }
 
-	function openDrawer() {
-		$("#mpRight").classList.add("mp-right--open");
-	}
+  /* ------------------ PAINEL DIREITO (toggle) ------------------ */
+  let panelOpen = false;
+  let panelType = null; // "mypatients" | "exames" | "historico" | null
 
-	function closeDrawer() {
-		$("#mpRight").classList.remove("mp-right--open");
-	}
+  function isMobile() {
+    return window.matchMedia("(max-width: 980px)").matches;
+  }
 
-	function updateActiveButtons() {
-		$("#mpToggleExames").classList.toggle("is-active", panelOpen && panelType === "exames");
-		$("#mpToggleHistorico").classList.toggle("is-active", panelOpen && panelType === "historico");
-	}
+  function openDrawer() {
+    $("#mpRight").classList.add("mp-right--open");
+  }
 
-	function showPanel(title) {
-		$("#mpSideTitle").textContent = title;
-		$("#mpSidePanel").classList.remove("vm-hidden");
-	}
+  function closeDrawer() {
+    $("#mpRight").classList.remove("mp-right--open");
+  }
 
-	function hidePanel() {
-		$("#mpSidePanel").classList.add("vm-hidden");
-		$("#mpSideContent").innerHTML = "";
-	}
+  function updateActiveButtons() {
+    $("#mpToggleMyPatients").classList.toggle("is-active", panelOpen && panelType === "mypatients");
+    $("#mpToggleExames").classList.toggle("is-active", panelOpen && panelType === "exames");
+    $("#mpToggleHistorico").classList.toggle("is-active", panelOpen && panelType === "historico");
+  }
 
-	async function renderExamesInto(container) {
-		container.innerHTML = `<div class="muted">Carregando exames...</div>`;
-		try {
-			const exames = await fetchExamesByPacienteId(pacienteId);
-			if (!Array.isArray(exames) || exames.length === 0) {
-				container.innerHTML = `<div class="muted">Nenhum exame enviado.</div>`;
-				return;
-			}
+  function showPanel(title) {
+    $("#mpSideTitle").textContent = title;
+    $("#mpSidePanel").classList.remove("vm-hidden");
+  }
 
-			container.innerHTML = exames.map(e => {
-			  const enviado = e.enviadoEm ? new Date(e.enviadoEm).toLocaleString() : "";
-			  const nome = e.nomeOriginal || "arquivo";
-			  const desc = String(e.descricao || "").trim();
+  function hidePanel() {
+    $("#mpSidePanel").classList.add("vm-hidden");
+    $("#mpSideContent").innerHTML = "";
+  }
 
-			  return `
-			    <div class="item">
-			      <div class="item__top">
-			        <div>
-			          <p class="item__title">Exame</p>
-			          <div class="item__meta">${escapeHTML(enviado)}</div>
-			        </div>
-			        <span class="badge">exame</span>
-			      </div>
+  async function renderExamesInto(container) {
+    container.innerHTML = `<div class="muted">Carregando exames...</div>`;
+    try {
+      const exames = await fetchExamesByPacienteId(pacienteId);
+      if (!Array.isArray(exames) || exames.length === 0) {
+        container.innerHTML = `<div class="muted">Nenhum exame enviado.</div>`;
+        return;
+      }
 
-			      ${desc ? `
-			        <div class="muted" style="margin-top:6px;">Descrição</div>
-			        <div class="mp-examDesc">${escapeHTML(desc)}</div>
-			      ` : ""}
+      container.innerHTML = exames.map(e => {
+        const enviado = e.enviadoEm ? new Date(e.enviadoEm).toLocaleString() : "";
+        const nome = e.nomeOriginal || "arquivo";
+        const desc = String(e.descricao || "").trim();
 
-			      <div class="hr"></div>
-			      <button class="btn btn--ghost" type="button"
-			        data-dl-exame="${e.id}" data-name="${escapeAttr(nome)}">
-			        📎 ${escapeHTML(nome)}
-			      </button>
-			    </div>
-			  `;
-			}).join("");
+        return `
+          <div class="item">
+            <div class="item__top">
+              <div>
+                <p class="item__title">Exame</p>
+                <div class="item__meta">${escapeHTML(enviado)}</div>
+              </div>
+              <span class="badge">exame</span>
+            </div>
 
-			$$('[data-dl-exame]', container).forEach(btn => {
-				btn.addEventListener("click", async () => {
-					await downloadExame(btn.dataset.dlExame, btn.dataset.name || "arquivo");
-				});
-			});
-		} catch (err) {
-			container.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-		}
-	}
+            ${desc ? `
+              <div class="muted" style="margin-top:6px;">Descrição</div>
+              <div class="mp-examDesc">${escapeHTML(desc)}</div>
+            ` : ""}
 
-	async function renderHistoricoInto(container) {
-		container.innerHTML = `<div class="muted">Carregando histórico...</div>`;
-		try {
-			const historicos = await fetchHistoricosByPacienteId(pacienteId);
-			if (!Array.isArray(historicos) || historicos.length === 0) {
-				container.innerHTML = `<div class="muted">Nenhum histórico cadastrado.</div>`;
-				return;
-			}
+            <div class="hr"></div>
+            <button class="btn btn--ghost" type="button"
+              data-dl-exame="${e.id}" data-name="${escapeAttr(nome)}">
+              📎 ${escapeHTML(nome)}
+            </button>
+          </div>
+        `;
+      }).join("");
 
-			container.innerHTML = historicos.map(h => `
+      $$('[data-dl-exame]', container).forEach(btn => {
+        btn.addEventListener("click", async () => {
+          try {
+            await downloadExame(btn.dataset.dlExame, btn.dataset.name || "arquivo");
+          } catch (err) {
+            toast(inferFriendlyError(err));
+          }
+        });
+      });
+    } catch (err) {
+      container.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+    }
+  }
+
+  async function renderHistoricoInto(container) {
+    container.innerHTML = `<div class="muted">Carregando histórico...</div>`;
+    try {
+      const historicos = await fetchHistoricosByPacienteId(pacienteId);
+      if (!Array.isArray(historicos) || historicos.length === 0) {
+        container.innerHTML = `<div class="muted">Nenhum histórico cadastrado.</div>`;
+        return;
+      }
+
+      container.innerHTML = historicos.map(h => `
         <div class="item">
           <div class="item__top">
             <div>
@@ -1605,69 +1583,147 @@ function renderMedicoPaciente() {
           <div>${historicoTextoParaHtml(h.textoHistorico)}</div>
         </div>
       `).join("");
-		} catch (err) {
-			container.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
-		}
-	}
+    } catch (err) {
+      container.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+    }
+  }
 
-	async function openPanel(type) {
-		panelOpen = true;
-		panelType = type;
-		updateActiveButtons();
+  // ✅ Meus pacientes: somente chats em que o MÉDICO já enviou mensagem
+  async function renderMyPatientsInto(container) {
+    container.innerHTML = `<div class="muted">Carregando meus pacientes...</div>`;
 
-		if (isMobile()) openDrawer();
+    try {
+      const chats = await fetchChats();
+      if (!Array.isArray(chats) || chats.length === 0) {
+        container.innerHTML = `<div class="muted">Você ainda não tem pacientes com conversa.</div>`;
+        return;
+      }
 
-		const content = $("#mpSideContent");
-		if (type === "exames") {
-			showPanel("Exames");
-			await renderExamesInto(content);
-		} else {
-			showPanel("Histórico familiar");
-			await renderHistoricoInto(content);
-		}
-	}
+      const enriched = await Promise.all(chats.map(async (c) => {
+        const pid = getPacienteIdFromChat(c);
+        const nome = c.pacienteNome || c.paciente?.nome || "Paciente";
+        if (!pid) return null;
 
-	function closePanel() {
-		panelOpen = false;
-		panelType = null;
-		updateActiveButtons();
-		hidePanel();
-	}
+        let msgs = [];
+        try {
+          const m = await fetchChatMessages(c.chatId);
+          msgs = Array.isArray(m) ? m : [];
+        } catch { msgs = []; }
 
-	async function togglePanel(type) {
-		// Clique no mesmo botão => fecha
-		if (panelOpen && panelType === type) {
-			closePanel();
-			return;
-		}
-		// Clique no outro => troca conteúdo
-		await openPanel(type);
-	}
+        const medicoMandou = msgs.some(m => m?.sender === "MEDICO");
+        const count = msgs.length;
 
-	$("#mpToggleExames").addEventListener("click", () => togglePanel("exames"));
-	$("#mpToggleHistorico").addEventListener("click", () => togglePanel("historico"));
+        const lastTs = msgs.reduce((max, m) => {
+          const t = m?.enviadoEm ? new Date(m.enviadoEm).getTime() : 0;
+          return Math.max(max, t);
+        }, 0);
 
-	// Drawer mobile
-	$("#mpDrawerOpen").addEventListener("click", openDrawer);
-	$("#mpDrawerClose").addEventListener("click", closeDrawer);
+        return {
+          pacienteId: pid,
+          pacienteNome: nome,
+          chatId: c.chatId,
+          medicoMandou,
+          count,
+          lastTs
+        };
+      }));
 
-	// Fecha drawer ao redimensionar para desktop
-	window.addEventListener("resize", () => {
-		if (!isMobile()) closeDrawer();
-	});
+      const mine = enriched
+        .filter(Boolean)
+        .filter(x => x.medicoMandou); // ✅ regra principal
 
-	// Inicializa
-	renderTop();
-	initChat();
-	closePanel(); // começa fechado
+      if (mine.length === 0) {
+        container.innerHTML = `<div class="muted">Nenhum paciente atribuído ainda (envie uma mensagem para iniciar).</div>`;
+        return;
+      }
+
+      mine.sort((a, b) => {
+        const dc = b.count - a.count;
+        if (dc !== 0) return dc;
+        return (b.lastTs || 0) - (a.lastTs || 0);
+      });
+
+      container.innerHTML = mine.map(x => {
+        const last = x.lastTs ? new Date(x.lastTs).toLocaleString() : "";
+        return `
+          <button class="chat-item" type="button" data-open-pid="${x.pacienteId}">
+            <div class="chat-item__title">${escapeHTML(x.pacienteNome)}</div>
+            <div class="chat-item__meta">${escapeHTML(`${x.count} mensagens${last ? " • " + last : ""}`)}</div>
+          </button>
+        `;
+      }).join("");
+
+      $$("[data-open-pid]", container).forEach(btn => {
+        btn.addEventListener("click", () => {
+          const pid = Number(btn.dataset.openPid);
+          if (!pid) return;
+          // ✅ mesmo comportamento do "Abrir"
+          window.location.href = `medico_paciente.html?pacienteId=${pid}`;
+        });
+      });
+
+    } catch (err) {
+      container.innerHTML = `<div class="muted">${escapeHTML(inferFriendlyError(err))}</div>`;
+    }
+  }
+
+  async function openPanel(type) {
+    panelOpen = true;
+    panelType = type;
+    updateActiveButtons();
+    if (isMobile()) openDrawer();
+
+    const content = $("#mpSideContent");
+
+    if (type === "mypatients") {
+      showPanel("Meus pacientes");
+      await renderMyPatientsInto(content);
+      return;
+    }
+    if (type === "exames") {
+      showPanel("Exames");
+      await renderExamesInto(content);
+      return;
+    }
+    showPanel("Histórico familiar");
+    await renderHistoricoInto(content);
+  }
+
+  function closePanel() {
+    panelOpen = false;
+    panelType = null;
+    updateActiveButtons();
+    hidePanel();
+  }
+
+  async function togglePanel(type) {
+    if (panelOpen && panelType === type) {
+      closePanel();
+      return;
+    }
+    await openPanel(type);
+  }
+
+  $("#mpToggleMyPatients").addEventListener("click", () => togglePanel("mypatients"));
+  $("#mpToggleExames").addEventListener("click", () => togglePanel("exames"));
+  $("#mpToggleHistorico").addEventListener("click", () => togglePanel("historico"));
+
+  // Drawer mobile
+  $("#mpDrawerOpen").addEventListener("click", openDrawer);
+  $("#mpDrawerClose").addEventListener("click", closeDrawer);
+
+  window.addEventListener("resize", () => {
+    if (!isMobile()) closeDrawer();
+  });
+
+  // Inicializa
+  renderTop();
+  initChat();
+  closePanel();
 }
 
 
-
-
-
-
-/* -------- Histórico Familiar (somente Paciente cria; Médico não usa página) -------- */
+/* -------- Histórico Familiar -------- */
 function renderHistorico() {
 	const meta = getUserMeta();
 	const role = normalizeRole(meta.role || "");
@@ -1841,7 +1897,6 @@ function renderHistorico() {
 		try {
 			const historicos = await fetchHistoricosByPacienteId(pacienteId);
 
-			// ✅ define a “anterior” como a segunda mais recente
 			prevHistorico = Array.isArray(historicos) && historicos.length >= 2 ? historicos[1] : null;
 			if (prevBtn) prevBtn.disabled = !prevHistorico;
 			if (prevBox && !prevBox.hidden) renderPrevBox();
@@ -1903,7 +1958,6 @@ function renderHistorico() {
 	else if (isMedico) hint.textContent = "Visualização do histórico familiar do paciente.";
 	else hint.textContent = "Acesso restrito.";
 
-	//  PacienteId via /me
 	(async () => {
 		try {
 			if (isPaciente) {
@@ -1914,14 +1968,12 @@ function renderHistorico() {
 		carregarLista().catch(() => { });
 	})();
 
-	//  botão histórico anterior
 	prevBtn?.addEventListener("click", () => {
 		if (!prevHistorico) return toast("Ainda não existe histórico anterior.");
 		prevBox.hidden = !prevBox.hidden;
 		if (!prevBox.hidden) renderPrevBox();
 	});
 
-	//  submit correto (SEM upload de exames aqui)
 	$("#formHistorico").addEventListener("submit", async (e) => {
 		e.preventDefault();
 		if (!isPaciente) return;
@@ -1944,6 +1996,7 @@ function renderHistorico() {
 	});
 }
 
+/* -------- Exames -------- */
 function renderExames() {
 	const meta = getUserMeta();
 	const role = normalizeRole(meta.role || "");
@@ -2109,7 +2162,6 @@ function renderExames() {
 	const logged = !!meta.token;
 	const role = normalizeRole(meta.role || "");
 
-	// requisito #2: se já estiver logado, não entra no cadastro
 	if (page === "cadastro" && logged) {
 		goPanelByRole(role);
 		return;

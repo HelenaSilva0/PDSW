@@ -59,24 +59,66 @@ public class ChatService {
 	}
 
 	public List<ChatSummaryResponse> listChats(Integer userId) {
-		User u = requireUser(userId);
+	    User u = requireUser(userId);
 
-		if (u.getRole() == UserType.MEDICO) {
-			Medico m = requireMedicoByUserId(userId);
-			return chatRepo.findByMedico_IdMedicoOrderByCriadoEmDesc(m.getIdMedico()).stream()
-					.map(c -> new ChatSummaryResponse(c.getId(), c.getPaciente().getIdPaciente(),
-							c.getPaciente().getNome(), null, c.getCriadoEm()))
-					.collect(Collectors.toList());
-		}
+	    // snippet curto
+	    java.util.function.Function<String, String> snippet = (s) -> {
+	        if (s == null) return null;
+	        String t = s.trim();
+	        if (t.length() <= 80) return t;
+	        return t.substring(0, 80) + "…";
+	    };
 
-		if (u.getRole() == UserType.PACIENTE) {
-			Paciente p = requirePacienteByUserId(userId);
-			return chatRepo.findByPaciente_IdPacienteOrderByCriadoEmDesc(p.getIdPaciente()).stream()
-					.map(c -> new ChatSummaryResponse(c.getId(), null, null, "Médico(a)", c.getCriadoEm()))
-					.collect(Collectors.toList());
-		}
+	    if (u.getRole() == UserType.MEDICO) {
+	        Medico m = requireMedicoByUserId(userId);
+	        return chatRepo.findByMedico_IdMedicoOrderByCriadoEmDesc(m.getIdMedico()).stream()
+	                .map(c -> {
+	                    var last = msgRepo.findTopByChat_IdOrderByEnviadoEmDesc(c.getId()).orElse(null);
+	                    return new ChatSummaryResponse(
+	                            c.getId(),
+	                            c.getPaciente().getIdPaciente(),
+	                            c.getPaciente().getNome(),
+	                            null,
+	                            c.getCriadoEm(),
+	                            last != null ? last.getEnviadoEm() : null,
+	                            last != null ? last.getSender().name() : null,
+	                            last != null ? snippet.apply(last.getTexto()) : null
+	                    );
+	                })
+	                // ordena por última mensagem (fallback criadoEm)
+	                .sorted((a, b) -> {
+	                    java.time.Instant ta = a.getUltimaMensagemEm() != null ? a.getUltimaMensagemEm() : a.getCriadoEm();
+	                    java.time.Instant tb = b.getUltimaMensagemEm() != null ? b.getUltimaMensagemEm() : b.getCriadoEm();
+	                    return tb.compareTo(ta);
+	                })
+	                .collect(java.util.stream.Collectors.toList());
+	    }
 
-		throw new IllegalArgumentException("Role não suportada.");
+	    if (u.getRole() == UserType.PACIENTE) {
+	        Paciente p = requirePacienteByUserId(userId);
+	        return chatRepo.findByPaciente_IdPacienteOrderByCriadoEmDesc(p.getIdPaciente()).stream()
+	                .map(c -> {
+	                    var last = msgRepo.findTopByChat_IdOrderByEnviadoEmDesc(c.getId()).orElse(null);
+	                    return new ChatSummaryResponse(
+	                            c.getId(),
+	                            null,
+	                            null,
+	                            "Médico(a)",
+	                            c.getCriadoEm(),
+	                            last != null ? last.getEnviadoEm() : null,
+	                            last != null ? last.getSender().name() : null,
+	                            last != null ? snippet.apply(last.getTexto()) : null
+	                    );
+	                })
+	                .sorted((a, b) -> {
+	                    java.time.Instant ta = a.getUltimaMensagemEm() != null ? a.getUltimaMensagemEm() : a.getCriadoEm();
+	                    java.time.Instant tb = b.getUltimaMensagemEm() != null ? b.getUltimaMensagemEm() : b.getCriadoEm();
+	                    return tb.compareTo(ta);
+	                })
+	                .collect(java.util.stream.Collectors.toList());
+	    }
+
+	    throw new IllegalArgumentException("Role não suportada.");
 	}
 
 	public List<ChatMessageResponse> listMessages(Long chatId) {
