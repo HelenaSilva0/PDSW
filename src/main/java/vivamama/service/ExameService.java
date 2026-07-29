@@ -21,16 +21,16 @@ public class ExameService {
 
     private final ExameRepository exameRepo;
     private final PacienteRepository pacienteRepo;
+    private final UploadValidator uploadValidator;
 
-    public ExameService(ExameRepository exameRepo, PacienteRepository pacienteRepo) {
+    public ExameService(ExameRepository exameRepo, PacienteRepository pacienteRepo, UploadValidator uploadValidator) {
         this.exameRepo = exameRepo;
         this.pacienteRepo = pacienteRepo;
+        this.uploadValidator = uploadValidator;
     }
 
     public ExameResponse adicionarExame(int pacienteId, String descricao, MultipartFile arquivo, Integer enviadoPorUserId) throws IOException {
-        if (arquivo == null || arquivo.isEmpty()) {
-            throw new IllegalArgumentException("Arquivo do exame é obrigatório");
-        }
+        String original = uploadValidator.validate(arquivo);
         if (descricao == null || descricao.trim().isEmpty()) {
             throw new IllegalArgumentException("Descrição do exame é obrigatória");
         }
@@ -42,9 +42,6 @@ public class ExameService {
 
         Path pastaUploads = Paths.get(uploadDir);
         Files.createDirectories(pastaUploads);
-
-        String original = Optional.ofNullable(arquivo.getOriginalFilename()).orElse("arquivo");
-        original = original.replaceAll("[\\\\/]", "_");
 
         String ext = "";
         int dot = original.lastIndexOf('.');
@@ -98,7 +95,10 @@ public class ExameService {
     }
 
     public Path resolvePath(String nomeArmazenado) {
-        return Paths.get(uploadDir).resolve(nomeArmazenado).toAbsolutePath().normalize();
+        Path root = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path resolved = root.resolve(nomeArmazenado).normalize();
+        if (!resolved.startsWith(root)) throw new IllegalArgumentException("Caminho de arquivo inválido.");
+        return resolved;
     }
 
     private ExameResponse toResponse(Exame e) {

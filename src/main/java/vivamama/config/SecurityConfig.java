@@ -16,6 +16,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import vivamama.security.JwtAuthFilter;
 
 @Configuration
@@ -43,6 +46,7 @@ public class SecurityConfig {
 
         http
             .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource(env)))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
             .authorizeHttpRequests(auth -> {
@@ -54,6 +58,11 @@ public class SecurityConfig {
                 auth.requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll();
                 auth.requestMatchers(
                 		"/",
+					"/assets/**",
+					"/login",
+					"/cadastro",
+					"/paciente/**",
+					"/medico/**",
                 	    "/index.html",
                 	    "/cadastro.html",
                 	    "/paciente.html",
@@ -95,6 +104,19 @@ public class SecurityConfig {
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    private CorsConfigurationSource corsConfigurationSource(Environment env) {
+        CorsConfiguration configuration = new CorsConfiguration();
+        String origins = env.getProperty("app.cors.allowed-origins", "http://localhost:5173");
+        configuration.setAllowedOrigins(java.util.Arrays.stream(origins.split(",")).map(String::trim).toList());
+        configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "Accept"));
+        configuration.setExposedHeaders(java.util.List.of("Content-Disposition"));
+        configuration.setAllowCredentials(false);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
     
 }

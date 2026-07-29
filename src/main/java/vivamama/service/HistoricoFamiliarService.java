@@ -25,13 +25,16 @@ public class HistoricoFamiliarService {
     private final HistoricoFamiliarRepository historicoRepo;
     private final HistoricoFamiliarAnexoRepository anexoRepo;
     private final PacienteRepository pacienteRepo;
+    private final UploadValidator uploadValidator;
 
     public HistoricoFamiliarService(HistoricoFamiliarRepository historicoRepo,
                                    HistoricoFamiliarAnexoRepository anexoRepo,
-                                   PacienteRepository pacienteRepo) {
+                                   PacienteRepository pacienteRepo,
+                                   UploadValidator uploadValidator) {
         this.historicoRepo = historicoRepo;
         this.anexoRepo = anexoRepo;
         this.pacienteRepo = pacienteRepo;
+        this.uploadValidator = uploadValidator;
     }
 
     public HistoricoFamiliarSnapshotResponse criarSnapshot(int pacienteId, String textoHistorico, Integer criadoPorUserId) {
@@ -99,8 +102,7 @@ public class HistoricoFamiliarService {
         for (MultipartFile arquivo : arquivos) {
             if (arquivo == null || arquivo.isEmpty()) continue;
 
-            String original = Optional.ofNullable(arquivo.getOriginalFilename()).orElse("arquivo");
-            original = original.replaceAll("[\\\\/]", "_");
+            String original = uploadValidator.validate(arquivo);
 
             String ext = "";
             int dot = original.lastIndexOf('.');
@@ -131,7 +133,10 @@ public class HistoricoFamiliarService {
     }
 
     public Path resolveAnexoPath(String nomeArmazenado) {
-        return Paths.get(uploadDir).resolve(nomeArmazenado).toAbsolutePath().normalize();
+        Path root = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path resolved = root.resolve(nomeArmazenado).normalize();
+        if (!resolved.startsWith(root)) throw new IllegalArgumentException("Caminho de arquivo inválido.");
+        return resolved;
     }
 
     private void migrarCaminhosAntigosParaAnexosSeNecessario(HistoricoFamiliar h) {
