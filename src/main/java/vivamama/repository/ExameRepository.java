@@ -17,6 +17,7 @@ public interface ExameRepository extends JpaRepository<Exame, Long> {
 	    }
 
 	    List<Exame> findByPaciente_IdPacienteOrderByIdDesc(int idPaciente);
+    void deleteByPaciente_IdPaciente(int idPaciente);
 
 	    @Query("select coalesce(max(e.versao), 0) from Exame e where e.paciente.idPaciente = :idPaciente")
 	    int findMaxVersaoByPacienteId(@Param("idPaciente") int idPaciente);

@@ -11,5 +11,6 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
 	List<ChatMessage> findByChat_IdOrderByEnviadoEmAsc(Long chatId);
     Optional<ChatMessage> findTopByChat_IdOrderByEnviadoEmDesc(Long chatId);
+    void deleteByChat_Paciente_IdPaciente(int pacienteId);
 
 }

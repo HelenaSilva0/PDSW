@@ -5,6 +5,7 @@ import java.time.Instant;
 import jakarta.persistence.*;
 
 @Entity
+@Table(uniqueConstraints = @UniqueConstraint(name = "uk_chat_medico_paciente", columnNames = {"medico_id", "paciente_id"}))
 public class Chat {
 
 	@Id

@@ -25,7 +25,9 @@ public class Paciente {
 	private String nome;
 	@Column(name = "data_nascimento")
 	private LocalDate dataNascimento;
+	@Column(length = 4000)
 	private String historicoFamiliar;
+	@Column(length = 4000)
 	private String observacoes;
 	private char genero;
 

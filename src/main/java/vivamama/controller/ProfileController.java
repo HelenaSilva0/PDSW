@@ -6,7 +6,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import vivamama.dto.MedicoProfile;
+import vivamama.dto.MedicoResponse;
 import vivamama.dto.PacienteProfile;
+import vivamama.dto.PacienteResponse;
 import vivamama.model.Medico;
 import vivamama.model.Paciente;
 import vivamama.repository.MedicoRepository;
@@ -26,13 +28,13 @@ public class ProfileController {
     // ✅ NÃO depende de userId vindo do front
     @PreAuthorize("hasRole('PACIENTE')")
     @PostMapping("/paciente")
-    public ResponseEntity<Paciente> criarPaciente(@RequestBody PacienteProfile req){
+    public ResponseEntity<PacienteResponse> criarPaciente(@RequestBody PacienteProfile req){
         Integer userId = authz.currentUserId();
         if (userId == null) return ResponseEntity.status(401).build();
 
         // idempotente (se já existir, devolve o existente)
         var existente = pacienteRepository.findByUser_Id(userId);
-        if (existente.isPresent()) return ResponseEntity.ok(existente.get());
+        if (existente.isPresent()) return ResponseEntity.ok(PacienteResponse.from(existente.get()));
 
         return userService.buscarPorId(userId)
                 .map(user -> {
@@ -43,19 +45,19 @@ public class ProfileController {
                     p.setHistoricoFamiliar(req.historicoFamiliar != null ? req.historicoFamiliar : "");
                     p.setObservacoes(req.observacoes != null ? req.observacoes : "");
                     p.setGenero(req.genero == '\u0000' ? 'N' : req.genero);
-                    return ResponseEntity.ok(pacienteRepository.save(p));
+                    return ResponseEntity.ok(PacienteResponse.from(pacienteRepository.save(p)));
                 })
                 .orElse(ResponseEntity.badRequest().build());
     }
 
     @PreAuthorize("hasRole('MEDICO')")
     @PostMapping("/medico")
-    public ResponseEntity<Medico> criarMedico(@RequestBody MedicoProfile req){
+    public ResponseEntity<MedicoResponse> criarMedico(@RequestBody MedicoProfile req){
         Integer userId = authz.currentUserId();
         if (userId == null) return ResponseEntity.status(401).build();
 
         var existente = medicoRepository.findByUser_Id(userId);
-        if (existente.isPresent()) return ResponseEntity.ok(existente.get());
+        if (existente.isPresent()) return ResponseEntity.ok(MedicoResponse.from(existente.get()));
 
         return userService.buscarPorId(userId)
                 .map(user -> {
@@ -64,7 +66,7 @@ public class ProfileController {
                     m.setNome(req.nome);
                     m.setCrm(req.crm);
                     m.setEspecialidade(req.especialidade);
-                    return ResponseEntity.ok(medicoRepository.save(m));
+                    return ResponseEntity.ok(MedicoResponse.from(medicoRepository.save(m)));
                 })
                 .orElse(ResponseEntity.badRequest().build());
     }

@@ -73,7 +73,7 @@ public class PacienteController {
 	@DeleteMapping("/me")
 	public ResponseEntity<Void> apagarMinhaConta() {
 		Integer userId = authz.currentUserId();
-		boolean ok = pacienteService.excluirPacientePorUserId(userId);
+		boolean ok = pacienteService.excluirContaPorUserId(userId);
 		return ok ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
 	}
 
