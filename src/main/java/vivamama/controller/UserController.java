@@ -20,11 +20,13 @@ import vivamama.model.Medico;
 import vivamama.model.Paciente;
 import vivamama.model.User;
 import vivamama.model.UserType;
+import vivamama.model.UserStatus;
 import vivamama.repository.MedicoRepository;
 import vivamama.repository.PacienteRepository;
 import vivamama.repository.UserRepository;
 import vivamama.security.JwtService;
 import vivamama.service.UserService;
+import vivamama.service.LoginAttemptService;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -40,6 +42,7 @@ public class UserController {
     @Autowired private AuthenticationManager authenticationManager;
     @Autowired private JwtService jwtService;
     @Autowired private UserRepository userRepository;
+    @Autowired private LoginAttemptService loginAttempts;
 
     @Value("${security.doctor-registration-code:}")
     private String doctorRegistrationCode;
@@ -56,7 +59,8 @@ public class UserController {
         if (telefone == null || telefone.isBlank()) return ResponseEntity.badRequest().body("Telefone é obrigatório.");
         if (req.role == null) return ResponseEntity.badRequest().body("Tipo de usuário é obrigatório.");
 
-        if (req.role == UserType.MEDICO) {
+        // Compatibilidade temporÃ¡ria: a aprovaÃ§Ã£o administrativa substitui o convite compartilhado.
+        if (false) {
             String providedCode = req.codigoMedico == null ? "" : req.codigoMedico.trim();
             byte[] provided = providedCode.getBytes(StandardCharsets.UTF_8);
             byte[] expected = doctorRegistrationCode == null
@@ -65,6 +69,8 @@ public class UserController {
                 return ResponseEntity.status(403).body("Cadastro médico exige convite válido.");
             }
         }
+
+        if (req.role == UserType.ADMIN) return ResponseEntity.badRequest().body("Tipo de usuario invalido.");
 
         String nome = req.nome == null ? null : req.nome.trim();
         if (nome == null || nome.isBlank()) {
@@ -87,6 +93,8 @@ public class UserController {
         user.setSenha(req.senha);
         user.setTelefone(telefone);
         user.setRole(req.role);
+        // Cadastros de pacientes e medicos sao liberados imediatamente.
+        user.setStatus(UserStatus.ATIVO);
         User saved = userService.criar(user);
 
         if (saved.getRole() == UserType.PACIENTE) {
@@ -108,23 +116,28 @@ public class UserController {
             medicoRepository.save(medico);
         }
 
-        return ResponseEntity.ok(new RegisterResponse(saved.getId(), saved.getRole()));
+        return ResponseEntity.ok(new RegisterResponse(saved.getId(), saved.getRole(), saved.getStatus()));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest req) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req, jakarta.servlet.http.HttpServletRequest request) {
         String email = req.email == null ? null : req.email.trim().toLowerCase();
+        String key = request.getRemoteAddr() + ":" + (email == null ? "" : email);
+        if (loginAttempts.isBlocked(key)) return ResponseEntity.status(429).body("Login temporariamente bloqueado.");
         if (email == null || email.isBlank()) return ResponseEntity.badRequest().body("E-mail é obrigatório.");
 
         var userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) loginAttempts.recordFailure(key);
         if (userOpt.isEmpty()) return ResponseEntity.status(401).body("Credenciais inválidas.");
 
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, req.senha));
         } catch (AuthenticationException error) {
+            loginAttempts.recordFailure(key);
             return ResponseEntity.status(401).body("Credenciais inválidas.");
         }
 
+        loginAttempts.recordSuccess(key);
         User user = userOpt.get();
         String token = jwtService.generateToken(user.getEmail(),
                 Map.of("role", user.getRole().name(), "userId", user.getId()));

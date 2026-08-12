@@ -44,7 +44,7 @@ public class ChatService {
 	}
 
 	@Transactional
-	public Chat startChat(Integer medicoUserId, Integer pacienteId) {
+	public synchronized Chat startChat(Integer medicoUserId, Integer pacienteId) {
 		Medico medico = requireMedicoByUserId(medicoUserId);
 		Paciente paciente = pacienteRepo.findById(pacienteId)
 				.orElseThrow(() -> new IllegalArgumentException("Paciente não encontrado."));
@@ -131,6 +131,9 @@ public class ChatService {
 	public ChatMessageResponse sendMessage(Long chatId, Integer userId, String texto) {
 		if (texto == null || texto.trim().isEmpty())
 			throw new IllegalArgumentException("texto é obrigatório");
+
+		if (texto.trim().length() > 2000)
+			throw new IllegalArgumentException("Mensagem acima do limite.");
 
 		User u = requireUser(userId);
 		Chat chat = chatRepo.findById(chatId).orElseThrow(() -> new IllegalArgumentException("Chat não encontrado."));

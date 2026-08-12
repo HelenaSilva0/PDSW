@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 import vivamama.model.Medico;
 import vivamama.dto.MedicoProfile;
 import vivamama.dto.MedicoResponse;
@@ -45,7 +46,7 @@ public class MedicoController {
 
     @PreAuthorize("hasRole('MEDICO') and @authz.isMedicoOwner(#id)")
     @PutMapping("/{id}")
-    public ResponseEntity<MedicoResponse> atualizar(@PathVariable Integer id, @RequestBody MedicoProfile profile) {
+    public ResponseEntity<MedicoResponse> atualizar(@PathVariable Integer id, @Valid @RequestBody MedicoProfile profile) {
         Medico medico = new Medico();
         medico.setNome(profile.nome);
         medico.setCrm(profile.crm);

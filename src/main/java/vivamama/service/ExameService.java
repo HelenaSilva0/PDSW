@@ -37,7 +37,9 @@ public class ExameService {
             throw new IllegalArgumentException("Descrição do exame é obrigatória");
         }
 
-        Paciente paciente = pacienteRepo.findById(pacienteId)
+        if (descricao.trim().length() > 500) throw new IllegalArgumentException("Descricao acima do limite.");
+
+        Paciente paciente = pacienteRepo.findByIdForUpdate(pacienteId)
                 .orElseThrow(() -> new IllegalArgumentException("Paciente não encontrado: " + pacienteId));
 
         int versao = exameRepo.findMaxVersaoByPacienteId(pacienteId) + 1;

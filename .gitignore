@@ -2,6 +2,13 @@ HELP.md
 target/
 data/
 uploads/
+.m2-task/
+.m2-run/
+*-run.log
+*-run.err
+node_modules/
+frontend/node_modules/
+frontend/dist/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

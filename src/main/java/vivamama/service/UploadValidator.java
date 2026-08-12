@@ -22,6 +22,7 @@ public class UploadValidator {
         if (file.getSize() > MAX_SIZE) throw new IllegalArgumentException("O arquivo deve ter no máximo 10 MB.");
         String original = Optional.ofNullable(file.getOriginalFilename()).orElse("arquivo");
         String safeName = original.replace('\\', '_').replace('/', '_').replaceAll("[\\p{Cntrl}]", "");
+        if (safeName.length() > 255) throw new IllegalArgumentException("Nome do arquivo muito longo.");
         String extension = safeName.contains(".") ? safeName.substring(safeName.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT) : "";
         String expected = TYPES.get(extension);
         if (expected == null || file.getContentType() == null || !expected.equalsIgnoreCase(file.getContentType())) {

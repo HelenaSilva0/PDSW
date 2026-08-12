@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import vivamama.dto.MedicoProfile;
 import vivamama.dto.MedicoResponse;
@@ -28,7 +29,7 @@ public class ProfileController {
     // ✅ NÃO depende de userId vindo do front
     @PreAuthorize("hasRole('PACIENTE')")
     @PostMapping("/paciente")
-    public ResponseEntity<PacienteResponse> criarPaciente(@RequestBody PacienteProfile req){
+    public ResponseEntity<PacienteResponse> criarPaciente(@Valid @RequestBody PacienteProfile req){
         Integer userId = authz.currentUserId();
         if (userId == null) return ResponseEntity.status(401).build();
 
@@ -52,7 +53,7 @@ public class ProfileController {
 
     @PreAuthorize("hasRole('MEDICO')")
     @PostMapping("/medico")
-    public ResponseEntity<MedicoResponse> criarMedico(@RequestBody MedicoProfile req){
+    public ResponseEntity<MedicoResponse> criarMedico(@Valid @RequestBody MedicoProfile req){
         Integer userId = authz.currentUserId();
         if (userId == null) return ResponseEntity.status(401).build();
 

@@ -3,6 +3,7 @@ package vivamama.controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
@@ -25,7 +26,7 @@ public class ChatController {
 	// médico inicia chat
 	@PostMapping("/start")
 	@PreAuthorize("hasRole('MEDICO') or hasAuthority('MEDICO')")
-	public ResponseEntity<?> start(@RequestBody StartChatRequest req) {
+	public ResponseEntity<?> start(@Valid @RequestBody StartChatRequest req) {
 		Integer me = authz.currentUserId();
 		var chat = chatService.startChat(me, req.getPacienteId());
 		return ResponseEntity.ok(chat.getId());
@@ -47,7 +48,7 @@ public class ChatController {
 	@PostMapping("/{chatId}/messages")
 	@PreAuthorize("@authz.canAccessChat(#chatId)")
 	public ResponseEntity<ChatMessageResponse> send(@PathVariable Long chatId,
-			@RequestBody SendChatMessageRequest req) {
+			@Valid @RequestBody SendChatMessageRequest req) {
 		Integer me = authz.currentUserId();
 		return ResponseEntity.ok(chatService.sendMessage(chatId, me, req.getTexto()));
 	}

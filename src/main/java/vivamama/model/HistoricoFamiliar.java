@@ -5,7 +5,8 @@ import java.time.LocalDateTime;
 import jakarta.persistence.*;
 
 @Entity
-@Table(uniqueConstraints = @UniqueConstraint(name = "uk_historico_paciente_versao", columnNames = {"paciente_id", "versao"}))
+@Table(uniqueConstraints = @UniqueConstraint(name = "uk_historico_paciente_versao", columnNames = {"paciente_id", "versao"}),
+       indexes = { @Index(name = "idx_historico_paciente_data", columnList = "paciente_id,criado_em") })
 public class HistoricoFamiliar {
 
     @Id

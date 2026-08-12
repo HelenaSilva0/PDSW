@@ -4,6 +4,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
 import vivamama.model.User;
+import vivamama.model.UserStatus;
 import vivamama.repository.UserRepository;
 
 import java.util.List;
@@ -21,6 +22,9 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         User user = repo.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado"));
+
+        boolean active = user.getStatus() != UserStatus.BLOQUEADO;
+        if (!active) throw new UsernameNotFoundException("Usuário não habilitado");
 
         String raw = user.getRole().name(); // pode ser PACIENTE ou ROLE_PACIENTE
         String role = raw.startsWith("ROLE_") ? raw : "ROLE_" + raw;

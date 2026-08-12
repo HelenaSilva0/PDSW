@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -45,7 +46,7 @@ public class HistoricoFamiliarController {
     @PreAuthorize("hasRole('MEDICO') or (hasRole('PACIENTE') and @authz.isPacienteOwnerByPacienteId(#req.pacienteId))")
     @PostMapping(value = "/snapshots", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public ResponseEntity<HistoricoFamiliarSnapshotResponse> criarSnapshot(@RequestBody HistoricoFamiliarSnapshotRequest req) {
+    public ResponseEntity<HistoricoFamiliarSnapshotResponse> criarSnapshot(@Valid @RequestBody HistoricoFamiliarSnapshotRequest req) {
         int pacienteId = req.pacienteId == null ? 0 : req.pacienteId;
         Integer userId = authz.currentUserId();
         HistoricoFamiliarSnapshotResponse created = historicoService.criarSnapshot(pacienteId, req.textoHistorico, userId);

@@ -44,7 +44,9 @@ public class HistoricoFamiliarService {
             throw new IllegalArgumentException("textoHistorico é obrigatório");
         }
 
-        Paciente paciente = pacienteRepo.findById(pacienteId)
+        if (textoHistorico.trim().length() > 4000) throw new IllegalArgumentException("Historico acima do limite.");
+
+        Paciente paciente = pacienteRepo.findByIdForUpdate(pacienteId)
                 .orElseThrow(() -> new IllegalArgumentException("Paciente não encontrado: " + pacienteId));
 
         int versao = historicoRepo.findMaxVersaoByPacienteId(pacienteId) + 1;
