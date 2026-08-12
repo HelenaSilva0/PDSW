@@ -2,6 +2,7 @@ package vivamama.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import vivamama.dto.ExameResponse;
 import vivamama.model.Exame;
@@ -29,13 +30,16 @@ public class ExameService {
         this.uploadValidator = uploadValidator;
     }
 
+    @Transactional
     public ExameResponse adicionarExame(int pacienteId, String descricao, MultipartFile arquivo, Integer enviadoPorUserId) throws IOException {
         String original = uploadValidator.validate(arquivo);
         if (descricao == null || descricao.trim().isEmpty()) {
             throw new IllegalArgumentException("Descrição do exame é obrigatória");
         }
 
-        Paciente paciente = pacienteRepo.findById(pacienteId)
+        if (descricao.trim().length() > 500) throw new IllegalArgumentException("Descricao acima do limite.");
+
+        Paciente paciente = pacienteRepo.findByIdForUpdate(pacienteId)
                 .orElseThrow(() -> new IllegalArgumentException("Paciente não encontrado: " + pacienteId));
 
         int versao = exameRepo.findMaxVersaoByPacienteId(pacienteId) + 1;
@@ -63,8 +67,13 @@ public class ExameService {
         e.setVersao(versao);
         e.setEnviadoPorUserId(enviadoPorUserId);
 
-        Exame saved = exameRepo.save(e);
-        return toResponse(saved);
+        try {
+            Exame saved = exameRepo.save(e);
+            return toResponse(saved);
+        } catch (RuntimeException error) {
+            Files.deleteIfExists(destino);
+            throw error;
+        }
     }
 
     public List<ExameResponse> listarPorPaciente(int pacienteId) {

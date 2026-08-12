@@ -187,7 +187,7 @@ function handleAuthFailure(err) {
 	const status = err?.status;
 	const msg = String(err?.message || "");
 
-	if (status === 401 || status === 403 || msg.includes("HTTP 401") || msg.includes("HTTP 403")) {
+	if (status === 401 || msg.includes("HTTP 401")) {
 		clearAuth();
 		toast(inferFriendlyError(err));
 		setTimeout(() => (window.location.href = "index.html"), 250);

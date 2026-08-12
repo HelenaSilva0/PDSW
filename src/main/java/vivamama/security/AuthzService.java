@@ -50,6 +50,12 @@ public class AuthzService {
 		return me != null && me.equals(userId);
 	}
 
+	public boolean isMedicoOwner(Integer medicoId) {
+		Integer userId = currentUserId();
+		return userId != null && medicoId != null
+				&& medicoRepo.findByUser_Id(userId).map(m -> m.getIdMedico() == medicoId).orElse(false);
+	}
+
 	public boolean isPacienteOwnerByPacienteId(Integer pacienteId) {
 		Integer userId = currentUserId();
 		if (userId == null || pacienteId == null)

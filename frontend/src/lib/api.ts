@@ -18,7 +18,7 @@ api.interceptors.response.use(response => response, (error: AxiosError) => {
   const status = error.response?.status ?? 0;
   const data = error.response?.data;
   const serverMessage = typeof data === 'string' ? data : (data && typeof data === 'object' && 'message' in data ? String(data.message) : '');
-  if (status === 401 || status === 403) {
+  if (status === 401) {
     clearSession();
     window.dispatchEvent(new CustomEvent('auth:expired'));
   }

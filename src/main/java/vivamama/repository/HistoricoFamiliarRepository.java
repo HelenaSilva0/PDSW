@@ -18,6 +18,7 @@ public interface HistoricoFamiliarRepository extends JpaRepository<HistoricoFami
 	    }
 
 	 List<HistoricoFamiliar> findByPaciente_IdPacienteOrderByIdDesc(int idPaciente);
+    void deleteByPaciente_IdPaciente(int idPaciente);
 	 @Query("select coalesce(max(h.versao), 0) from HistoricoFamiliar h where h.paciente.idPaciente = :idPaciente")
 	    int findMaxVersaoByPacienteId(@Param("idPaciente") int idPaciente);
 	 

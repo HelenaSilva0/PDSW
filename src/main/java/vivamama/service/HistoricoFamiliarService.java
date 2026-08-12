@@ -2,6 +2,7 @@ package vivamama.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import vivamama.dto.HistoricoFamiliarAnexoResponse;
 import vivamama.dto.HistoricoFamiliarSnapshotResponse;
@@ -37,12 +38,15 @@ public class HistoricoFamiliarService {
         this.uploadValidator = uploadValidator;
     }
 
+    @Transactional
     public HistoricoFamiliarSnapshotResponse criarSnapshot(int pacienteId, String textoHistorico, Integer criadoPorUserId) {
         if (textoHistorico == null || textoHistorico.trim().isEmpty()) {
             throw new IllegalArgumentException("textoHistorico é obrigatório");
         }
 
-        Paciente paciente = pacienteRepo.findById(pacienteId)
+        if (textoHistorico.trim().length() > 4000) throw new IllegalArgumentException("Historico acima do limite.");
+
+        Paciente paciente = pacienteRepo.findByIdForUpdate(pacienteId)
                 .orElseThrow(() -> new IllegalArgumentException("Paciente não encontrado: " + pacienteId));
 
         int versao = historicoRepo.findMaxVersaoByPacienteId(pacienteId) + 1;
@@ -89,6 +93,7 @@ public class HistoricoFamiliarService {
         return out;
     }
 
+    @Transactional
     public List<HistoricoFamiliarAnexoResponse> adicionarAnexos(Long historicoId, List<MultipartFile> arquivos, Integer enviadoPorUserId) throws IOException {
         if (arquivos == null || arquivos.isEmpty()) return List.of();
 
@@ -99,8 +104,10 @@ public class HistoricoFamiliarService {
         Files.createDirectories(pastaUploads);
 
         List<HistoricoFamiliarAnexoResponse> created = new ArrayList<>();
-        for (MultipartFile arquivo : arquivos) {
-            if (arquivo == null || arquivo.isEmpty()) continue;
+        List<Path> createdPaths = new ArrayList<>();
+        try {
+            for (MultipartFile arquivo : arquivos) {
+                if (arquivo == null || arquivo.isEmpty()) continue;
 
             String original = uploadValidator.validate(arquivo);
 
@@ -112,18 +119,25 @@ public class HistoricoFamiliarService {
 
             String nomeArmazenado = UUID.randomUUID() + ext;
             Path destino = pastaUploads.resolve(nomeArmazenado);
-            Files.copy(arquivo.getInputStream(), destino, StandardCopyOption.REPLACE_EXISTING);
+                Files.copy(arquivo.getInputStream(), destino, StandardCopyOption.REPLACE_EXISTING);
+                createdPaths.add(destino);
 
-            HistoricoFamiliarAnexo a = new HistoricoFamiliarAnexo();
-            a.setHistorico(historico);
-            a.setNomeOriginal(original);
-            a.setNomeArmazenado(nomeArmazenado);
-            a.setContentType(arquivo.getContentType());
-            a.setTamanho(arquivo.getSize());
-            a.setEnviadoPorUserId(enviadoPorUserId);
+                HistoricoFamiliarAnexo a = new HistoricoFamiliarAnexo();
+                a.setHistorico(historico);
+                a.setNomeOriginal(original);
+                a.setNomeArmazenado(nomeArmazenado);
+                a.setContentType(arquivo.getContentType());
+                a.setTamanho(arquivo.getSize());
+                a.setEnviadoPorUserId(enviadoPorUserId);
 
-            HistoricoFamiliarAnexo saved = anexoRepo.save(a);
-            created.add(toResponse(saved));
+                HistoricoFamiliarAnexo saved = anexoRepo.save(a);
+                created.add(toResponse(saved));
+            }
+        } catch (IOException | RuntimeException error) {
+            for (Path path : createdPaths) {
+                try { Files.deleteIfExists(path); } catch (IOException ignored) { }
+            }
+            throw error;
         }
         return created;
     }

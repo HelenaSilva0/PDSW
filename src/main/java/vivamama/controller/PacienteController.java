@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
 import vivamama.dto.PacienteDashboardResponse;
+import vivamama.dto.PacienteProfile;
 import vivamama.service.PacienteDashboardService;
 
 @RestController
@@ -63,8 +64,14 @@ public class PacienteController {
 
 	@PreAuthorize("hasRole('PACIENTE')")
 	@PutMapping("/me")
-	public ResponseEntity<PacienteResponse> atualizarMe(@RequestBody Paciente atualizado) {
+	public ResponseEntity<PacienteResponse> atualizarMe(@jakarta.validation.Valid @RequestBody PacienteProfile profile) {
 		Integer userId = authz.currentUserId();
+		Paciente atualizado = new Paciente();
+		atualizado.setNome(profile.nome);
+		atualizado.setDataNascimento(profile.dataNascimento);
+		atualizado.setHistoricoFamiliar(profile.historicoFamiliar);
+		atualizado.setObservacoes(profile.observacoes);
+		atualizado.setGenero(profile.genero);
 		return pacienteService.atualizarPacientePorUserId(userId, atualizado).map(PacienteResponse::from).map(ResponseEntity::ok)
 				.orElseGet(() -> ResponseEntity.notFound().build());
 	}
@@ -73,7 +80,7 @@ public class PacienteController {
 	@DeleteMapping("/me")
 	public ResponseEntity<Void> apagarMinhaConta() {
 		Integer userId = authz.currentUserId();
-		boolean ok = pacienteService.excluirPacientePorUserId(userId);
+		boolean ok = pacienteService.excluirContaPorUserId(userId);
 		return ok ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
 	}
 

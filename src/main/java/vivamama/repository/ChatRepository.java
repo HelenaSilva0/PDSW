@@ -15,4 +15,5 @@ public interface ChatRepository extends JpaRepository<Chat, Long> {
     List<Chat> findByMedico_IdMedicoOrderByCriadoEmDesc(int medicoId);
 
     List<Chat> findByPaciente_IdPacienteOrderByCriadoEmDesc(int pacienteId);
+    void deleteByPaciente_IdPaciente(int pacienteId);
 }

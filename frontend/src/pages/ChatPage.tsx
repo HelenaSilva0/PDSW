@@ -5,7 +5,8 @@ import { formatDateTime } from '../lib/format';
 import { chatService } from '../services';
 import { useToast } from '../shared/ToastContext';
 import { Button, EmptyState, ErrorState, Loading } from '../shared/UI';
-const interval = Number(import.meta.env.VITE_CHAT_POLL_INTERVAL_MS || 10000);
+const configuredInterval = Number(import.meta.env.VITE_CHAT_POLL_INTERVAL_MS || 10000);
+const interval = Number.isFinite(configuredInterval) && configuredInterval >= 1000 ? configuredInterval : 10000;
 export function ChatPage({ initialChatId, lockedChatId, compact = false }: { initialChatId?: number; lockedChatId?: number; compact?: boolean }) {
   const { session } = useAuth(); const notify = useToast(); const client = useQueryClient(); const [selected, setSelected] = useState<number | undefined>(initialChatId); const [text, setText] = useState(''); const end = useRef<HTMLDivElement>(null);
   const chats = useQuery({ queryKey: ['chats'], queryFn: chatService.list, refetchInterval: interval, refetchIntervalInBackground: false });
