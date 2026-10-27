@@ -43,7 +43,7 @@ public class HistoricoFamiliarController {
     }
 
     // ---- NOVO: cria snapshot (texto) ----
-    @PreAuthorize("hasRole('MEDICO') or (hasRole('PACIENTE') and @authz.isPacienteOwnerByPacienteId(#req.pacienteId))")
+    @PreAuthorize("hasRole('PACIENTE') and @authz.isPacienteOwnerByPacienteId(#req.pacienteId)")
     @PostMapping(value = "/snapshots", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<HistoricoFamiliarSnapshotResponse> criarSnapshot(@Valid @RequestBody HistoricoFamiliarSnapshotRequest req) {
@@ -54,7 +54,7 @@ public class HistoricoFamiliarController {
     }
 
     // ---- NOVO: adiciona anexos a um snapshot já criado ----
-    @PreAuthorize("hasRole('MEDICO') or (hasRole('PACIENTE') and @authz.isPacienteOwnerByHistoricoId(#historicoId))")
+    @PreAuthorize("hasRole('PACIENTE') and @authz.isPacienteOwnerByHistoricoId(#historicoId)")
     @PostMapping(value = "/snapshots/{historicoId}/anexos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseBody
     public ResponseEntity<List<HistoricoFamiliarAnexoResponse>> adicionarAnexos(
@@ -106,7 +106,7 @@ public class HistoricoFamiliarController {
 
     // ---- LEGADO: mantém endpoints antigos ----
 
-    @PreAuthorize("hasRole('MEDICO') or @authz.isPacienteOwnerByPacienteId(#pacienteId)")
+    @PreAuthorize("hasRole('PACIENTE') and @authz.isPacienteOwnerByPacienteId(#pacienteId)")
     @PostMapping("/salvar")
     public String salvarLegacyRedirect(
             @RequestParam("textoHistorico") String textoHistorico,
@@ -117,7 +117,7 @@ public class HistoricoFamiliarController {
         return "redirect:/HistoricoFamiliar.html?sucesso";
     }
 
-    @PreAuthorize("hasRole('MEDICO') or (hasRole('PACIENTE') and @authz.isPacienteOwnerByPacienteId(#pacienteId))")
+    @PreAuthorize("hasRole('PACIENTE') and @authz.isPacienteOwnerByPacienteId(#pacienteId)")
     @PostMapping(value = "/salvar-json", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseBody
     public ResponseEntity<HistoricoFamiliarSnapshotResponse> salvarLegacyJson(

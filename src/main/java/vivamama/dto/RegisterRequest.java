@@ -26,6 +26,4 @@ public class RegisterRequest {
     public String crm;
     @Size(max = 100)
     public String especialidade;
-    @Size(max = 200)
-    public String codigoMedico;
 }

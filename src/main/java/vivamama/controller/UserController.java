@@ -3,7 +3,6 @@ package vivamama.controller;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -28,8 +27,6 @@ import vivamama.security.JwtService;
 import vivamama.service.UserService;
 import vivamama.service.LoginAttemptService;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.Map;
 
 @RestController
@@ -44,9 +41,6 @@ public class UserController {
     @Autowired private UserRepository userRepository;
     @Autowired private LoginAttemptService loginAttempts;
 
-    @Value("${security.doctor-registration-code:}")
-    private String doctorRegistrationCode;
-
     @PostMapping("/register")
     @Transactional
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
@@ -58,17 +52,6 @@ public class UserController {
         if (req.senha.length() < 8) return ResponseEntity.badRequest().body("A senha deve ter pelo menos 8 caracteres.");
         if (telefone == null || telefone.isBlank()) return ResponseEntity.badRequest().body("Telefone é obrigatório.");
         if (req.role == null) return ResponseEntity.badRequest().body("Tipo de usuário é obrigatório.");
-
-        // Compatibilidade temporÃ¡ria: a aprovaÃ§Ã£o administrativa substitui o convite compartilhado.
-        if (false) {
-            String providedCode = req.codigoMedico == null ? "" : req.codigoMedico.trim();
-            byte[] provided = providedCode.getBytes(StandardCharsets.UTF_8);
-            byte[] expected = doctorRegistrationCode == null
-                    ? new byte[0] : doctorRegistrationCode.getBytes(StandardCharsets.UTF_8);
-            if (expected.length == 0 || !MessageDigest.isEqual(provided, expected)) {
-                return ResponseEntity.status(403).body("Cadastro médico exige convite válido.");
-            }
-        }
 
         if (req.role == UserType.ADMIN) return ResponseEntity.badRequest().body("Tipo de usuario invalido.");
 
@@ -93,7 +76,7 @@ public class UserController {
         user.setSenha(req.senha);
         user.setTelefone(telefone);
         user.setRole(req.role);
-        // Cadastros de pacientes e medicos sao liberados imediatamente.
+        // Pacientes e médicos iniciam ativos.
         user.setStatus(UserStatus.ATIVO);
         User saved = userService.criar(user);
 

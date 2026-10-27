@@ -235,3 +235,49 @@ O trabalho será considerado concluído quando:
 - H2 permanecerá restrito a desenvolvimento e testes.
 - Java e Node.js já estão instalados no ambiente.
 - A alteração local em `Index.html` será preservada.
+
+---
+
+# Atualização: plano de melhorias pós-implementação
+
+Itens do plano acima já implementados (verificados pela estrutura do código): status de usuário, aprovação/admin de médicos, rate limit de login, `UploadValidator`, `StorageCleanupService`, DTOs, CI e migration V1. O que segue é o que ainda falta.
+
+## P0 — antes de qualquer deploy
+- [ ] **Flyway**: existe `db/migration/V1__...sql`, mas o `pom.xml` não tem Flyway. Adicionar `flyway-core` e `flyway-database-postgresql`, criar baseline V0 do schema atual e testar com Postgres (Testcontainers).
+- [x] **Cadastro médico**: decisão — médicos iniciam `ATIVO` (sem aprovação). Código de convite morto removido. Risco aceito: qualquer pessoa pode se cadastrar como médico e ver todos os pacientes; não usar dados reais.
+- [x] **Médico somente leitura no histórico familiar**: escrita (`/snapshots`, anexos, `/salvar`, `/salvar-json`) restrita a `PACIENTE` dono.
+- [ ] **Artefatos no Git**: parar de versionar `static/assets/index-*`, `frontend/*.tsbuildinfo`; ignorar `tests/**/__pycache__`, `test-artifacts/`, `selenium-*.log`. Gerar o bundle no build (`frontend-maven-plugin`).
+- [ ] **Histórico Git**: verificar dados reais (`data/`, `uploads/`) e credenciais; limpar e rotacionar se houver.
+
+## P1 — segurança
+- [ ] Remover `permitAll` de `/paciente/**`, `/medico/**` e HTMLs legados em `SecurityConfig`.
+- [ ] Cabeçalhos: CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy`.
+- [ ] JWT em cookie `HttpOnly`/`Secure`/`SameSite` + refresh token (habilitar CSRF e `allowCredentials`).
+- [ ] Auditoria de acesso médico a dados de pacientes (LGPD).
+- [ ] Produção deve falhar no boot com `JWT_SECRET` fraco/curto.
+
+## P2 — testes
+- [ ] Backend: testes de integração (MockMvc) para login, papéis, download não autorizado, upload falsificado, concorrência de versão/chat, exclusão em cascata.
+- [ ] Frontend: `AuthContext` (401 vs 403), `Routes` por papel, upload, chat.
+- [ ] Selenium no CI (job separado) ou migrar para Playwright.
+- [ ] CI: cobertura (JaCoCo/Vitest), Dependabot/dependency-check, branch protegida.
+
+## P3 — arquitetura e performance
+- [ ] Remover interface legada (`app.js`, HTMLs antigos, duplicidade `Index.html`/`index.html`), após validar a alteração local em `Index.html`.
+- [ ] Paginação e eliminação de N+1 (dashboard médico, lista de chats).
+- [ ] Chat via SSE/WebSocket no lugar de polling.
+- [ ] Actuator, logs estruturados com correlation ID, erros padronizados.
+- [ ] OpenAPI (springdoc), README de produção e `docker-compose` (app + Postgres).
+
+## Cronograma sugerido
+| Semana | Itens |
+|---|---|
+| 1 | P0 completo + remover `permitAll` legado |
+| 2 | Cabeçalhos, auditoria, segredos, testes de auth/upload |
+| 3 | Demais testes e CI |
+| 4 | Cookie HttpOnly, remoção do legado, paginação |
+| 5 | Tempo real, observabilidade, docs/docker |
+
+## Decisões em aberto
+- (resolvido) `data/` e `uploads/` só têm dados de teste; médico só lê o histórico familiar.
+- Alvo de deploy (define docker e cookie `Secure`).

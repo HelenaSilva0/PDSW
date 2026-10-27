@@ -1,6 +1,6 @@
 import { downloadFile, request } from './lib/api';
 import type { ChatMessage, ChatSummary, Exam, HistoryAttachment, HistorySnapshot, Patient, PatientDashboard, RegisterResponse, Role } from './types/api';
-export interface RegisterData { email: string; senha: string; telefone: string; role: Role; nome: string; dataNascimento?: string; genero?: string; observacoes?: string; crm?: string; especialidade?: string; codigoMedico?: string }
+export interface RegisterData { email: string; senha: string; telefone: string; role: Role; nome: string; dataNascimento?: string; genero?: string; observacoes?: string; crm?: string; especialidade?: string }
 export const authService = { register: (data: RegisterData) => request<RegisterResponse>({ url: '/auth/register', method: 'POST', data }) };
 export const patientService = {
   me: () => request<Patient>({ url: '/pacientes/me' }),

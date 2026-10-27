@@ -92,12 +92,6 @@ Durante o desenvolvimento, o Vite encaminha as chamadas da API para o backend em
 
 ## Configurações opcionais
 
-Para permitir cadastro de médicos, defina um código de convite antes de iniciar o backend:
-
-```powershell
-$env:DOCTOR_REGISTRATION_CODE="codigo-local"
-```
-
 Para alterar a origem permitida pelo CORS:
 
 ```powershell
