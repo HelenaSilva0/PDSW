@@ -57,24 +57,16 @@ public class SecurityConfig {
 
                 auth.requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll();
                 auth.requestMatchers(
-                		"/",
-					"/assets/**",
-					"/login",
-					"/cadastro",
-					"/paciente/**",
-					"/medico/**",
-                	    "/index.html",
-                	    "/cadastro.html",
-                	    "/paciente.html",
-                	    "/medico.html",
-                	    "/medico_paciente.html",
-                	    "/Chat.html",
-                	    "/HistoricoFamiliar.html",
-                	    "/Exames.html",
-                	    "/app.js",
-                	    "/styles.css",
-                	    "/favicon.ico",
-                	    "/auth/**"
+                        "/",
+                        "/index.html",
+                        "/assets/**",
+                        "/login",
+                        "/cadastro",
+                        "/paciente",
+                        "/paciente/**",
+                        "/medico",
+                        "/medico/**",
+                        "/auth/**"
                 ).permitAll();
 
                 if (dev) {

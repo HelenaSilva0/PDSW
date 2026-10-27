@@ -33,12 +33,6 @@ public class ExameController {
         this.authz = authz;
     }
 
-    // Só redireciona pro HTML estático
-    @GetMapping("/novo")
-    public String mostrarPagina() {
-        return "redirect:/Exames.html";
-    }
-
     // Upload de 1 exame com descrição
     @PreAuthorize("hasRole('MEDICO') or hasRole('PACIENTE')")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
