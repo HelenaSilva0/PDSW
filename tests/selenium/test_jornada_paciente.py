@@ -36,7 +36,7 @@ class JornadaPacienteTest(unittest.TestCase):
 
     def setUp(self) -> None:
         self.run_id = str(int(time.time() * 1000))
-        self.patient_name = "Mariana Alves de Souza"
+        self.patient_name = f"Mariana Alves de Souza {self.run_id}"
         self.patient_email = f"mariana.{self.run_id}@exemplo.test"
         self.patient_phone = f"8199{self.run_id[-8:]}"
         self.doctor_name = "Dra. Camila Nogueira"

@@ -5,6 +5,7 @@ import java.util.Objects;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import vivamama.repository.ChatRepository;
 import vivamama.repository.ExameRepository;
@@ -15,6 +16,7 @@ import vivamama.repository.PacienteRepository;
 import vivamama.repository.UserRepository;
 
 @Component("authz")
+@Transactional(readOnly = true)
 public class AuthzService {
 
 	private final UserRepository userRepo;
