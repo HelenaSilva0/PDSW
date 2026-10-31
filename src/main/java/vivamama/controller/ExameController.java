@@ -33,12 +33,6 @@ public class ExameController {
         this.authz = authz;
     }
 
-    // Só redireciona pro HTML estático
-    @GetMapping("/novo")
-    public String mostrarPagina() {
-        return "redirect:/Exames.html";
-    }
-
     // Upload de 1 exame com descrição
     @PreAuthorize("hasRole('MEDICO') or hasRole('PACIENTE')")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -69,9 +63,21 @@ public class ExameController {
         return exameService.listarPorPaciente(idPaciente);
     }
 
-    @PreAuthorize("hasRole('MEDICO') or (hasRole('PACIENTE') and @authz.isPacienteOwnerByExameId(#exameId))")
+    @PreAuthorize("hasRole('PACIENTE') and @authz.isPacienteOwnerByExameId(#exameId)")
     @GetMapping("/{exameId}")
     public ResponseEntity<Resource> baixar(@PathVariable Long exameId) throws MalformedURLException {
+
+        return arquivo(exameId, true);
+    }
+
+    @PreAuthorize("hasRole('MEDICO') or (hasRole('PACIENTE') and @authz.isPacienteOwnerByExameId(#exameId))")
+    @GetMapping("/{exameId}/visualizar")
+    public ResponseEntity<Resource> visualizar(@PathVariable Long exameId) throws MalformedURLException {
+
+        return arquivo(exameId, false);
+    }
+
+    private ResponseEntity<Resource> arquivo(Long exameId, boolean attachment) throws MalformedURLException {
 
         var exameOpt = exameService.buscar(exameId);
         if (exameOpt.isEmpty()) return ResponseEntity.notFound().build();
@@ -92,9 +98,7 @@ public class ExameController {
         String fileName = exame.getNomeOriginal() == null ? "arquivo" : exame.getNomeOriginal();
         String encoded = java.net.URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
 
-        return ResponseEntity.ok()
-                .contentType(mt)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encoded)
-                .body(resource);
+        String disposition = (attachment ? "attachment" : "inline") + "; filename*=UTF-8''" + encoded;
+        return ResponseEntity.ok().contentType(mt).header(HttpHeaders.CONTENT_DISPOSITION, disposition).body(resource);
     }
 }

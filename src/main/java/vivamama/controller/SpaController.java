@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 public class SpaController {
     @GetMapping({
             "/", "/login", "/cadastro", "/paciente", "/paciente/**",
-            "/medico", "/medico/**"
+            "/medico", "/medico/**", "/termos", "/privacidade"
     })
     public String reactApp() {
         return "forward:/index.html";

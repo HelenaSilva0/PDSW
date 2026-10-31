@@ -2,6 +2,7 @@ package vivamama.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import vivamama.model.UserType;
@@ -26,6 +27,14 @@ public class RegisterRequest {
     public String crm;
     @Size(max = 100)
     public String especialidade;
-    @Size(max = 200)
-    public String codigoMedico;
+
+    @NotNull
+    public Boolean aceiteTermos;
+
+    @NotNull
+    public Boolean cienciaPrivacidade;
+
+    public Boolean consentimentoDadosSaude;
+
+    public Boolean compromissoConfidencialidade;
 }

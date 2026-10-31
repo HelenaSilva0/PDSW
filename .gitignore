@@ -40,3 +40,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Artefatos de teste e logs locais ###
+test-artifacts/
+selenium-*.log
+tests/**/__pycache__/
+*.tsbuildinfo

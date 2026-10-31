@@ -52,17 +52,19 @@ Na raiz do projeto:
 
 ```powershell
 $env:JWT_SECRET="uma-chave-local-com-32-ou-mais-caracteres"
-.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"
+.\mvnw.cmd -Pdev spring-boot:run "-Dspring-boot.run.profiles=dev"
 ```
 
 No Linux ou macOS:
 
 ```bash
 export JWT_SECRET="uma-chave-local-com-32-ou-mais-caracteres"
-./mvnw spring-boot:run "-Dspring-boot.run.profiles=dev"
+./mvnw -Pdev spring-boot:run "-Dspring-boot.run.profiles=dev"
 ```
 
 O backend será iniciado em `http://localhost:8080`.
+
+> `-Pdev` ativa o perfil Maven que inclui o driver do H2; `-Dspring-boot.run.profiles=dev` ativa o perfil Spring. Sem o `-Pdev` a aplicação falha com `Cannot load driver class: org.h2.Driver` e encerra em segundos.
 
 O perfil `dev` utiliza um banco H2 persistido localmente em `data/vivamama`. Esse diretório pode ser criado automaticamente na primeira execução.
 
@@ -90,13 +92,13 @@ Durante o desenvolvimento, o Vite encaminha as chamadas da API para o backend em
 
 > No PowerShell, caso a execução de scripts esteja bloqueada, use `npm.cmd` em vez de `npm`.
 
+### Primeiro uso
+
+- Crie uma conta de **paciente** e outra de **médico** em `/cadastro`. O médico informa CRM e especialidade e já entra com status `ATIVO`.
+- Não há usuário administrador criado automaticamente.
+- O médico consulta o histórico familiar dos pacientes, mas não pode alterá-lo; apenas o próprio paciente grava histórico e anexos.
+
 ## Configurações opcionais
-
-Para permitir cadastro de médicos, defina um código de convite antes de iniciar o backend:
-
-```powershell
-$env:DOCTOR_REGISTRATION_CODE="codigo-local"
-```
 
 Para alterar a origem permitida pelo CORS:
 
@@ -143,7 +145,9 @@ cd ..
 .\mvnw.cmd clean package
 ```
 
-O build do frontend será gravado em `src/main/resources/static/`. Depois, o backend pode ser iniciado com o artefato gerado:
+O build do frontend será gravado em `src/main/resources/static/`.
+
+> **Nota:** o build regrava `src/main/resources/static/assets/` e o Git passará a mostrar arquivos novos ou alterados nessa pasta. Os bundles gerados ainda são versionados; remova os antigos que não forem mais referenciados por `index.html` antes de commitar. Depois, o backend pode ser iniciado com o artefato gerado:
 
 ```powershell
 $env:JWT_SECRET="uma-chave-local-com-32-ou-mais-caracteres"

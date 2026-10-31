@@ -36,14 +36,8 @@ public class HistoricoFamiliarController {
         this.authz = authz;
     }
 
-    // Só redireciona pro HTML estático
-    @GetMapping("/novo")
-    public String mostrarFormulario() {
-        return "redirect:/HistoricoFamiliar.html";
-    }
-
     // ---- NOVO: cria snapshot (texto) ----
-    @PreAuthorize("hasRole('MEDICO') or (hasRole('PACIENTE') and @authz.isPacienteOwnerByPacienteId(#req.pacienteId))")
+    @PreAuthorize("hasRole('PACIENTE') and @authz.isPacienteOwnerByPacienteId(#req.pacienteId)")
     @PostMapping(value = "/snapshots", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<HistoricoFamiliarSnapshotResponse> criarSnapshot(@Valid @RequestBody HistoricoFamiliarSnapshotRequest req) {
@@ -54,7 +48,7 @@ public class HistoricoFamiliarController {
     }
 
     // ---- NOVO: adiciona anexos a um snapshot já criado ----
-    @PreAuthorize("hasRole('MEDICO') or (hasRole('PACIENTE') and @authz.isPacienteOwnerByHistoricoId(#historicoId))")
+    @PreAuthorize("hasRole('PACIENTE') and @authz.isPacienteOwnerByHistoricoId(#historicoId)")
     @PostMapping(value = "/snapshots/{historicoId}/anexos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseBody
     public ResponseEntity<List<HistoricoFamiliarAnexoResponse>> adicionarAnexos(
@@ -75,7 +69,7 @@ public class HistoricoFamiliarController {
     }
 
     // ---- DOWNLOAD autenticado de anexo ----
-    @PreAuthorize("hasRole('MEDICO') or (hasRole('PACIENTE') and @authz.isPacienteOwnerByAnexoId(#anexoId))")
+    @PreAuthorize("hasRole('PACIENTE') and @authz.isPacienteOwnerByAnexoId(#anexoId)")
     @GetMapping("/anexos/{anexoId}")
     public ResponseEntity<Resource> baixarAnexo(@PathVariable Long anexoId) throws MalformedURLException {
 
@@ -102,40 +96,5 @@ public class HistoricoFamiliarController {
                 .contentType(mt)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encoded)
                 .body(resource);
-    }
-
-    // ---- LEGADO: mantém endpoints antigos ----
-
-    @PreAuthorize("hasRole('MEDICO') or @authz.isPacienteOwnerByPacienteId(#pacienteId)")
-    @PostMapping("/salvar")
-    public String salvarLegacyRedirect(
-            @RequestParam("textoHistorico") String textoHistorico,
-            @RequestParam(value = "exames", required = false) List<MultipartFile> exames,
-            @RequestParam("pacienteId") Integer pacienteId
-    ) throws IOException {
-        salvarLegacy(textoHistorico, exames, pacienteId);
-        return "redirect:/HistoricoFamiliar.html?sucesso";
-    }
-
-    @PreAuthorize("hasRole('MEDICO') or (hasRole('PACIENTE') and @authz.isPacienteOwnerByPacienteId(#pacienteId))")
-    @PostMapping(value = "/salvar-json", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @ResponseBody
-    public ResponseEntity<HistoricoFamiliarSnapshotResponse> salvarLegacyJson(
-            @RequestParam("textoHistorico") String textoHistorico,
-            @RequestParam(value = "exames", required = false) List<MultipartFile> exames,
-            @RequestParam("pacienteId") Integer pacienteId
-    ) throws IOException {
-        HistoricoFamiliarSnapshotResponse resp = salvarLegacy(textoHistorico, exames, pacienteId);
-        return ResponseEntity.ok(resp);
-    }
-
-    private HistoricoFamiliarSnapshotResponse salvarLegacy(String textoHistorico, List<MultipartFile> exames, Integer pacienteId) throws IOException {
-        Integer userId = authz.currentUserId();
-        HistoricoFamiliarSnapshotResponse snapshot = historicoService.criarSnapshot(pacienteId, textoHistorico, userId);
-        historicoService.adicionarAnexos(snapshot.id, exames, userId);
-        return historicoService.listarPorPaciente(pacienteId).stream()
-                .filter(h -> h.id != null && h.id.equals(snapshot.id))
-                .findFirst()
-                .orElse(snapshot);
     }
 }

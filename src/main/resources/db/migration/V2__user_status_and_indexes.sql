@@ -1,7 +1,7 @@
--- Aplicar com backup prÃ©vio. Para bancos existentes, executar esta migraÃ§Ã£o
--- antes de ativar JPA ddl-auto=validate.
+-- Status de usuário e índices/unicidades. Aplicar com backup prévio.
+-- Pacientes e médicos iniciam ATIVO.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20);
-UPDATE users SET status = CASE WHEN role = 'MEDICO' THEN 'PENDENTE' ELSE 'ATIVO' END WHERE status IS NULL;
+UPDATE users SET status = 'ATIVO' WHERE status IS NULL;
 ALTER TABLE users ALTER COLUMN status SET NOT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status_alterado_por_user_id INTEGER;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status_alterado_em TIMESTAMP WITH TIME ZONE;
