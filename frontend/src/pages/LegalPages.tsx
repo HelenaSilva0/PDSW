@@ -1,0 +1,10 @@
+import { Link } from 'react-router-dom';
+import { Card } from '../shared/UI';
+
+export function TermsPage() {
+  return <div className="legal-page"><Card><span className="eyebrow">Viva Mama · versão 2026.1</span><h1>Termos de Uso</h1><p>Ao usar a plataforma, você se compromete a fornecer informações verdadeiras, manter suas credenciais em segurança e utilizar o sistema apenas para as finalidades de acompanhamento e comunicação previstas.</p><h2>Uso profissional</h2><p>Médicos devem manter sigilo profissional, acessar somente pacientes relacionados à sua atuação autorizada e não copiar, compartilhar ou utilizar dados para finalidade incompatível com o atendimento.</p><h2>Responsabilidades</h2><p>A plataforma não substitui avaliação médica. O responsável pelo sistema deve manter este documento, identificar o controlador e disponibilizar um canal de atendimento ao titular antes da publicação.</p><Link to="/cadastro">Voltar ao cadastro</Link></Card></div>;
+}
+
+export function PrivacyPage() {
+  return <div className="legal-page"><Card><span className="eyebrow">Viva Mama · versão 2026.1</span><h1>Política de Privacidade</h1><p>Esta política descreve, em linguagem simples, o tratamento de dados no Viva Mama. O responsável pelo sistema deve completar a identificação do controlador, do encarregado e os canais de atendimento antes do uso em produção.</p><h2>Dados e finalidades</h2><p>Coletamos dados cadastrais para criar e proteger a conta. Pacientes podem inserir histórico familiar, exames e conversas para acompanhamento. Médicos fornecem dados profissionais para validação e atendimento.</p><h2>Dados de saúde</h2><p>Dados de saúde são sensíveis. O consentimento do paciente é separado, específico e destacado no cadastro, limitado ao acompanhamento dentro da plataforma. O acesso é restrito conforme o perfil e as autorizações do sistema.</p><h2>Direitos do titular</h2><p>O titular pode solicitar informações sobre o tratamento, correção, revogação do consentimento e eliminação quando aplicável, sem prejuízo das hipóteses legais de conservação.</p><Link to="/cadastro">Voltar ao cadastro</Link></Card></div>;
+}

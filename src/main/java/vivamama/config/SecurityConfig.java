@@ -62,6 +62,8 @@ public class SecurityConfig {
                         "/assets/**",
                         "/login",
                         "/cadastro",
+                        "/termos",
+                        "/privacidade",
                         "/paciente",
                         "/paciente/**",
                         "/medico",

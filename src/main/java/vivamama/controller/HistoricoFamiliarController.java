@@ -69,7 +69,7 @@ public class HistoricoFamiliarController {
     }
 
     // ---- DOWNLOAD autenticado de anexo ----
-    @PreAuthorize("hasRole('MEDICO') or (hasRole('PACIENTE') and @authz.isPacienteOwnerByAnexoId(#anexoId))")
+    @PreAuthorize("hasRole('PACIENTE') and @authz.isPacienteOwnerByAnexoId(#anexoId)")
     @GetMapping("/anexos/{anexoId}")
     public ResponseEntity<Resource> baixarAnexo(@PathVariable Long anexoId) throws MalformedURLException {
 

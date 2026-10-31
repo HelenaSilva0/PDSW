@@ -1,7 +1,8 @@
 import { downloadFile, request } from './lib/api';
 import type { ChatMessage, ChatSummary, Exam, HistoryAttachment, HistorySnapshot, Patient, PatientDashboard, RegisterResponse, Role } from './types/api';
-export interface RegisterData { email: string; senha: string; telefone: string; role: Role; nome: string; dataNascimento?: string; genero?: string; observacoes?: string; crm?: string; especialidade?: string }
+export interface RegisterData { email: string; senha: string; telefone: string; role: Role; nome: string; dataNascimento?: string; genero?: string; observacoes?: string; crm?: string; especialidade?: string; aceiteTermos: boolean; cienciaPrivacidade: boolean; consentimentoDadosSaude?: boolean; compromissoConfidencialidade?: boolean }
 export const authService = { register: (data: RegisterData) => request<RegisterResponse>({ url: '/auth/register', method: 'POST', data }) };
+export const accountService = { deleteMe: () => request<void>({ url: '/auth/me', method: 'DELETE' }) };
 export const patientService = {
   me: () => request<Patient>({ url: '/pacientes/me' }),
   updateMe: (data: Partial<Patient>) => request<Patient>({ url: '/pacientes/me', method: 'PUT', data }),
